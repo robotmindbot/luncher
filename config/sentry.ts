@@ -12,10 +12,9 @@ export interface SentryConfig {
 // Update these values with your actual Sentry project details
 export const sentryConfig: SentryConfig = {
   // Replace with your actual Sentry DSN from your project settings
-  dsn: "https://4c2a2f65a26c2c9932cbe84d582370de@o4507551667257344.ingest.de.sentry.io/4509448721268816",
-
+  dsn: "https://fa2cffa2c51e619b0cd94e090074ac37@o4507551667257344.ingest.de.sentry.io/4509469741613136",
   // Replace with your Sentry organization slug
-  organization: "your-org-slug",
+  organization: "robotanica",
 
   // Replace with your Sentry project name
   project: "waza",

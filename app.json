@@ -16,7 +16,15 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "QUERY_ALL_PACKAGES",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ],
+      "package": "com.anonymous.waza"
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +33,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/android-launcher-plugin.js",
       [
         "expo-splash-screen",
         {
