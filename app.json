@@ -33,6 +33,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "your-org-slug",
+          "project": "waza",
+          "url": "https://sentry.io/"
+        }
       ]
     ],
     "experiments": {
