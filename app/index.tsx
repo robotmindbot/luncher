@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
+    Animated,
+    BackHandler,
+    Dimensions,
     FlatList,
     SafeAreaView,
     StatusBar,
@@ -8,11 +11,16 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
+import AppSelector from '../components/AppSelector';
+import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
+import { useFontSize } from './_layout';
 
-// Simple mock data for testing
-const mockApps = [
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Mock data for development/testing
+const mockApps: AppInfo[] = [
   { name: 'Settings', packageName: 'com.android.settings' },
   { name: 'Calculator', packageName: 'com.android.calculator2' },
   { name: 'Camera', packageName: 'com.android.camera' },
@@ -21,346 +29,330 @@ const mockApps = [
   { name: 'Phone', packageName: 'com.android.phone' },
   { name: 'Messages', packageName: 'com.android.messaging' },
   { name: 'Contacts', packageName: 'com.android.contacts' },
-  { name: 'Chrome', packageName: 'com.android.chrome' },
-  { name: 'Play Store', packageName: 'com.android.vending' },
 ];
 
-interface AppInfo {
-  name: string;
-  packageName: string;
-}
-
-// Error Boundary Component
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    console.error('ErrorBoundary caught error:', error);
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error('ErrorBoundary componentDidCatch:', error, errorInfo);
-    // Log to console for adb logcat
-    console.log('=== CRASH DETAILS ===');
-    console.log('Error:', error.message);
-    console.log('Stack:', error.stack);
-    console.log('Component Stack:', errorInfo.componentStack);
-    console.log('=== END CRASH DETAILS ===');
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <SafeAreaView style={styles.errorContainer}>
-          <StatusBar barStyle="light-content" backgroundColor="#000" />
-          <Text style={styles.errorTitle}>App Error</Text>
-          <Text style={styles.errorMessage}>
-            {this.state.error?.message || 'Unknown error occurred'}
-          </Text>
-          <Text style={styles.errorStack}>
-            {this.state.error?.stack || 'No stack trace available'}
-          </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => this.setState({ hasError: false, error: null })}
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
 function LauncherHome() {
+  const router = useRouter();
+  const { fontSize, numHomeApps, homeApps, setHomeApp } = useFontSize();
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [filteredApps, setFilteredApps] = useState<AppInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [appSelectorVisible, setAppSelectorVisible] = useState(false);
+  const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
+
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
-    console.log('LauncherHome component mounted');
     loadApps();
   }, []);
 
   useEffect(() => {
-    try {
-      console.log('Filtering apps, search query:', searchQuery);
-      if (searchQuery.trim() === '') {
-        setFilteredApps(apps);
-      } else {
-        const filtered = apps.filter(app =>
-          app.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setFilteredApps(filtered);
-      }
-    } catch (error) {
-      console.error('Error in search filter:', error);
-      setError(`Search error: ${error}`);
+    if (searchQuery.trim() === '') {
+      setFilteredApps(apps);
+    } else {
+      const filtered = apps.filter(app =>
+        app.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredApps(filtered);
     }
   }, [searchQuery, apps]);
 
+  // Handle Android back button
+  useEffect(() => {
+    const backAction = () => {
+      if (isDrawerOpen) {
+        closeDrawer();
+        return true; // Prevent default behavior
+      }
+      return false; // Allow default behavior (exit app)
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+    return () => backHandler.remove();
+  }, [isDrawerOpen]);
+
   const loadApps = async () => {
     try {
-      console.log('Starting to load apps...');
       setLoading(true);
-      setError(null);
 
-      // Simulate loading time
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try to load real apps first, fallback to mock data
+      const realApps = await AppLauncherWrapper.getInstalledApps();
+      const sortedApps = realApps.length > 0 ? realApps : mockApps;
+      sortedApps.sort((a, b) => a.name.localeCompare(b.name));
 
-      console.log('Mock apps loaded:', mockApps.length);
+      setApps(sortedApps);
+      setFilteredApps(sortedApps);
+    } catch (error) {
+      // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
       setApps(sortedApps);
       setFilteredApps(sortedApps);
-      console.log('Apps set successfully');
-    } catch (error) {
-      console.error('Error loading apps:', error);
-      setError(`Loading error: ${error}`);
     } finally {
       setLoading(false);
-      console.log('Loading complete');
     }
   };
 
-  const launchApp = (packageName: string, appName: string) => {
+  const launchApp = async (packageName: string) => {
     try {
-      console.log(`Attempting to launch app: ${appName} (${packageName})`);
-      Alert.alert('Launch App', `Would launch: ${appName}\nPackage: ${packageName}`);
+      console.log('Attempting to launch app:', packageName);
+      await AppLauncherWrapper.launchApp(packageName);
+      console.log('App launched successfully:', packageName);
+      // Close the drawer after launching an app
+      closeDrawer();
     } catch (error) {
-      console.error('Error launching app:', error);
-      setError(`Launch error: ${error}`);
+      console.error('Failed to launch app:', packageName, error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
     }
   };
 
-  const renderAppItem = ({ item }: { item: AppInfo }) => {
-    try {
-      return (
-        <TouchableOpacity
-          style={styles.appItem}
-          onPress={() => launchApp(item.packageName, item.name)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.appName}>
-            {item.name}
-          </Text>
-        </TouchableOpacity>
-      );
-    } catch (error) {
-      console.error('Error rendering app item:', error);
-      return (
-        <View style={styles.appItem}>
-          <Text style={styles.errorText}>Error rendering app</Text>
-        </View>
-      );
+  const openDrawer = () => {
+    setIsDrawerOpen(true);
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setSearchQuery(''); // Clear search when closing
+    Animated.spring(translateY, {
+      toValue: SCREEN_HEIGHT,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const toggleDrawer = () => {
+    if (isDrawerOpen) {
+      closeDrawer();
+    } else {
+      openDrawer();
     }
   };
 
-  const renderSeparator = () => <View style={styles.separator} />;
+  const renderAppItem = ({ item }: { item: AppInfo }) => (
+    <TouchableOpacity
+      style={styles.appItem}
+      onPress={() => launchApp(item.packageName)}
+      activeOpacity={0.6}
+    >
+      <Text style={[styles.appName, { fontSize: fontSize }]}>{item.name}</Text>
+    </TouchableOpacity>
+  );
 
-  // Show error state
-  if (error) {
-    return (
-      <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <Text style={styles.errorTitle}>Error</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadApps}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
+  const handleLongPress = () => {
+    router.push('./config');
+  };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <Text style={styles.loadingText}>Loading applications...</Text>
-        <Text style={styles.debugText}>Check console logs for details</Text>
-      </SafeAreaView>
-    );
-  }
+  const handleHomeAppPress = async (app: any) => {
+    if (app.packageName) {
+      try {
+        console.log('Attempting to launch home app:', app.packageName, app.originalName);
+        await AppLauncherWrapper.launchApp(app.packageName);
+        console.log('Home app launched successfully:', app.packageName);
+      } catch (error) {
+        console.error('Failed to launch home app:', app.packageName, error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+      }
+    } else {
+      console.log('No package name for home app:', app);
+    }
+  };
 
-  try {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+  const handleHomeAppLongPress = (index: number) => {
+    setSelectedHomeAppIndex(index);
+    setAppSelectorVisible(true);
+  };
 
-        {/* Debug Info */}
-        <View style={styles.debugContainer}>
-          <Text style={styles.debugText}>
-            Debug: {filteredApps.length} apps loaded
+  const handleAppSelect = (app: { packageName: string; originalName: string; nickname?: string }) => {
+    if (selectedHomeAppIndex !== null) {
+      setHomeApp(selectedHomeAppIndex, app);
+    }
+    setAppSelectorVisible(false);
+    setSelectedHomeAppIndex(null);
+  };
+
+  const renderHomeAppItem = (app: any, index: number) => (
+    <TouchableOpacity
+      key={index}
+      style={styles.homeAppItem}
+      onPress={() => handleHomeAppPress(app)}
+      onLongPress={() => handleHomeAppLongPress(index)}
+      activeOpacity={0.6}
+    >
+      <Text style={[styles.homeAppName, { fontSize }]}>
+        {app.nickname || app.originalName}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
+
+      {/* Main Black Screen */}
+      <TouchableOpacity
+        style={styles.mainScreen}
+        onPress={toggleDrawer}
+        onLongPress={handleLongPress}
+        delayLongPress={800}
+        activeOpacity={1}
+      >
+        {numHomeApps > 0 && (
+          <View style={styles.homeAppsContainer}>
+            {homeApps.slice(0, numHomeApps).map((app, index) => renderHomeAppItem(app, index))}
+          </View>
+        )}
+
+        <View style={styles.swipeIndicator}>
+          <Text style={styles.swipeText}>
+            {isDrawerOpen ? 'Tap to close' : 'Tap for apps'}
+          </Text>
+          <Text style={styles.hintText}>
+            Hold for config
           </Text>
         </View>
+      </TouchableOpacity>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search apps..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-        </View>
+      {/* App Drawer Overlay */}
+      <Animated.View
+        style={[
+          styles.drawer,
+          {
+            transform: [{ translateY }],
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={closeDrawer}>
+          <View style={styles.drawerHandle} />
+        </TouchableOpacity>
 
-        {/* Apps List */}
-        <FlatList
-          data={filteredApps}
-          renderItem={renderAppItem}
-          keyExtractor={(item) => item.packageName}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={renderSeparator}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search"
+          placeholderTextColor="#666"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+          autoCapitalize="none"
         />
 
-        {/* App Count */}
-        <View style={styles.footer}>
-          <Text style={styles.appCount}>
-            {filteredApps.length} {filteredApps.length === 1 ? 'app' : 'apps'}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  } catch (error) {
-    console.error('Error in render:', error);
-    return (
-      <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <Text style={styles.errorTitle}>Render Error</Text>
-        <Text style={styles.errorMessage}>Failed to render launcher</Text>
-      </SafeAreaView>
-    );
-  }
-}
+        {!loading && (
+          <FlatList
+            data={filteredApps}
+            renderItem={renderAppItem}
+            keyExtractor={(item) => item.packageName}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+          />
+        )}
+      </Animated.View>
 
-// Main component with error boundary
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <LauncherHome />
-    </ErrorBoundary>
+      {/* App Selector Modal */}
+      <AppSelector
+        visible={appSelectorVisible}
+        onClose={() => {
+          setAppSelectorVisible(false);
+          setSelectedHomeAppIndex(null);
+        }}
+        onSelectApp={handleAppSelect}
+        currentApp={
+          selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
+            ? homeApps[selectedHomeAppIndex]
+            : undefined
+        }
+      />
+    </SafeAreaView>
   );
 }
+
+export default LauncherHome;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
   },
-  loadingContainer: {
+  mainScreen: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 100,
+  },
+  swipeIndicator: {
     alignItems: 'center',
+    paddingVertical: 20,
   },
-  loadingText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  swipeText: {
+    color: '#555',
+    fontSize: 16,
+    opacity: 0.8,
   },
-  debugContainer: {
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 0, 0.1)',
-  },
-  debugText: {
-    color: '#yellow',
+  hintText: {
+    color: '#555',
     fontSize: 12,
-    textAlign: 'center',
+    opacity: 0.8,
   },
-  searchContainer: {
-    margin: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+  drawer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT,
+    backgroundColor: '#000',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 24,
+  },
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   searchInput: {
-    height: 50,
+    height: 48,
+    marginHorizontal: 20,
+    marginBottom: 20,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#fff',
+    backgroundColor: '#111',
+    borderRadius: 8,
   },
   listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   appItem: {
     paddingVertical: 16,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+    paddingHorizontal: 4,
   },
   appName: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '300',
   },
-  separator: {
-    height: 8,
+  homeAppItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 4,
   },
-  footer: {
-    padding: 16,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  appCount: {
-    color: '#666',
-    fontSize: 14,
-  },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    color: '#ff4444',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  errorMessage: {
+  homeAppName: {
     color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '300',
   },
-  errorStack: {
-    color: '#999',
-    fontSize: 12,
-    textAlign: 'left',
-    marginBottom: 20,
-    maxHeight: 200,
-  },
-  errorText: {
-    color: '#ff4444',
-    fontSize: 14,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  retryText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  homeAppsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
 });

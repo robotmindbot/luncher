@@ -47,10 +47,14 @@ const AppLauncherWrapper: AppLauncherModule = {
     }
 
     try {
-      return await AppLauncher.launchApp(packageName);
+      const result = await AppLauncher.launchApp(packageName);
+      if (result === false) {
+        throw new Error(`Failed to launch app: ${packageName} - No launch intent found`);
+      }
+      return result;
     } catch (error) {
       console.error('Failed to launch app from native module:', error);
-      return false;
+      throw error;
     }
   }
 };
