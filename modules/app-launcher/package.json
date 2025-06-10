@@ -1,0 +1,18 @@
+{
+  "name": "app-launcher",
+  "version": "1.0.0",
+  "description": "Expo module for Android app launching functionality",
+  "main": "index.ts",
+  "scripts": {
+    "build": "expo-module build"
+  },
+  "keywords": ["expo", "module", "android", "launcher"],
+  "author": "waza",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*"
+  },
+  "devDependencies": {
+    "expo-module-scripts": "*"
+  }
+}

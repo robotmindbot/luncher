@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
     SafeAreaView,
     StatusBar,
@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import AppSelector from '../components/AppSelector';
 import { useFontSize } from './_layout';
 
 const FONT_SIZES = [
@@ -19,7 +20,19 @@ const FONT_SIZES = [
 
 export default function ConfigScreen() {
   const router = useRouter();
-  const { fontSize, setFontSize, numHomeApps, setNumHomeApps } = useFontSize();
+  const {
+    fontSize,
+    setFontSize,
+    numHomeApps,
+    setNumHomeApps,
+    leftSwipeApp,
+    rightSwipeApp,
+    setLeftSwipeApp,
+    setRightSwipeApp
+  } = useFontSize();
+
+  const [appSelectorVisible, setAppSelectorVisible] = useState(false);
+  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
 
   const handleFontSizeSelect = (size: number) => {
     setFontSize(size);
@@ -27,6 +40,21 @@ export default function ConfigScreen() {
 
   const handleNumHomeAppsSelect = (num: number) => {
     setNumHomeApps(num);
+  };
+
+  const handleSwipeAppPress = (type: 'left' | 'right') => {
+    setSelectedSwipeType(type);
+    setAppSelectorVisible(true);
+  };
+
+  const handleSwipeAppSelect = (app: { packageName: string; originalName: string; nickname?: string }) => {
+    if (selectedSwipeType === 'left') {
+      setLeftSwipeApp(app);
+    } else if (selectedSwipeType === 'right') {
+      setRightSwipeApp(app);
+    }
+    setAppSelectorVisible(false);
+    setSelectedSwipeType(null);
   };
 
   return (
@@ -86,7 +114,47 @@ export default function ConfigScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Swipe Gestures</Text>
+
+        <View style={styles.swipeSection}>
+          <TouchableOpacity
+            style={styles.swipeOption}
+            onPress={() => handleSwipeAppPress('left')}
+            activeOpacity={0.6}
+          >
+            <Text style={[styles.swipeLabel, { fontSize }]}>Swipe Left</Text>
+            <Text style={[styles.swipeAppName, { fontSize }]}>
+              {leftSwipeApp.nickname || leftSwipeApp.originalName}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.swipeOption}
+            onPress={() => handleSwipeAppPress('right')}
+            activeOpacity={0.6}
+          >
+            <Text style={[styles.swipeLabel, { fontSize }]}>Swipe Right</Text>
+            <Text style={[styles.swipeAppName, { fontSize }]}>
+              {rightSwipeApp.nickname || rightSwipeApp.originalName}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* App Selector Modal */}
+      <AppSelector
+        visible={appSelectorVisible}
+        onClose={() => {
+          setAppSelectorVisible(false);
+          setSelectedSwipeType(null);
+        }}
+        onSelectApp={handleSwipeAppSelect}
+        currentApp={
+          selectedSwipeType === 'left' ? leftSwipeApp :
+          selectedSwipeType === 'right' ? rightSwipeApp : undefined
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -135,5 +203,25 @@ const styles = StyleSheet.create({
   optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  swipeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  swipeOption: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  swipeLabel: {
+    color: '#fff',
+    fontWeight: '300',
+  },
+  swipeAppName: {
+    color: '#fff',
+    fontWeight: '300',
+    marginTop: 10,
   },
 });

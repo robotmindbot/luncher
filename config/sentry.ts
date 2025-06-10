@@ -17,7 +17,7 @@ export const sentryConfig: SentryConfig = {
   organization: "robotanica",
 
   // Replace with your Sentry project name
-  project: "waza",
+  project: "luncher",
 
   // Sentry URL (use this if you have a self-hosted instance)
   url: "https://sentry.io/",

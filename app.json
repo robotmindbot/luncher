@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "waza",
-    "slug": "waza",
+    "name": "luncher",
+    "slug": "luncher",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "waza",
+    "scheme": "luncher",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -24,7 +24,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_EXTERNAL_STORAGE"
       ],
-      "package": "com.anonymous.waza"
+      "package": "baby.waza.luncher"
     },
     "web": {
       "bundler": "metro",
@@ -46,8 +46,8 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "your-org-slug",
-          "project": "waza",
+          "organization": "robotanica",
+          "project": "luncher",
           "url": "https://sentry.io/"
         }
       ]

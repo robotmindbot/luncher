@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import AppSelector from '../components/AppSelector';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
 import { useFontSize } from './_layout';
@@ -33,7 +34,7 @@ const mockApps: AppInfo[] = [
 
 function LauncherHome() {
   const router = useRouter();
-  const { fontSize, numHomeApps, homeApps, setHomeApp } = useFontSize();
+  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp } = useFontSize();
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [filteredApps, setFilteredApps] = useState<AppInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +42,7 @@ function LauncherHome() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
@@ -77,19 +79,31 @@ function LauncherHome() {
   const loadApps = async () => {
     try {
       setLoading(true);
+      console.log('Loading installed apps...');
 
       // Try to load real apps first, fallback to mock data
       const realApps = await AppLauncherWrapper.getInstalledApps();
+      console.log('Retrieved apps count:', realApps.length);
+
+      if (realApps.length === 0) {
+        console.warn('No apps retrieved from native module, using mock data');
+      }
+
       const sortedApps = realApps.length > 0 ? realApps : mockApps;
       sortedApps.sort((a, b) => a.name.localeCompare(b.name));
 
       setApps(sortedApps);
       setFilteredApps(sortedApps);
+      console.log('Apps loaded successfully, total:', sortedApps.length);
     } catch (error) {
+      console.error('Error loading apps:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+
       // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
       setApps(sortedApps);
       setFilteredApps(sortedApps);
+      console.log('Using mock data, count:', sortedApps.length);
     } finally {
       setLoading(false);
     }
@@ -115,7 +129,12 @@ function LauncherHome() {
       useNativeDriver: true,
       tension: 100,
       friction: 8,
-    }).start();
+    }).start(() => {
+      // Focus the search input after the animation completes
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    });
   };
 
   const closeDrawer = () => {
@@ -193,83 +212,115 @@ function LauncherHome() {
     </TouchableOpacity>
   );
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
+  const handleSwipeGesture = (event: any) => {
+    const { translationX, velocityX, state } = event.nativeEvent;
 
-      {/* Main Black Screen */}
-      <TouchableOpacity
-        style={styles.mainScreen}
-        onPress={toggleDrawer}
-        onLongPress={handleLongPress}
-        delayLongPress={800}
-        activeOpacity={1}
-      >
-        {numHomeApps > 0 && (
-          <View style={styles.homeAppsContainer}>
-            {homeApps.slice(0, numHomeApps).map((app, index) => renderHomeAppItem(app, index))}
-          </View>
-        )}
-
-        <View style={styles.swipeIndicator}>
-          <Text style={styles.swipeText}>
-            {isDrawerOpen ? 'Tap to close' : 'Tap for apps'}
-          </Text>
-          <Text style={styles.hintText}>
-            Hold for config
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* App Drawer Overlay */}
-      <Animated.View
-        style={[
-          styles.drawer,
-          {
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        <TouchableOpacity onPress={closeDrawer}>
-          <View style={styles.drawerHandle} />
-        </TouchableOpacity>
-
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search"
-          placeholderTextColor="#666"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-
-        {!loading && (
-          <FlatList
-            data={filteredApps}
-            renderItem={renderAppItem}
-            keyExtractor={(item) => item.packageName}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
-        )}
-      </Animated.View>
-
-      {/* App Selector Modal */}
-      <AppSelector
-        visible={appSelectorVisible}
-        onClose={() => {
-          setAppSelectorVisible(false);
-          setSelectedHomeAppIndex(null);
-        }}
-        onSelectApp={handleAppSelect}
-        currentApp={
-          selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
-            ? homeApps[selectedHomeAppIndex]
-            : undefined
+    if (state === State.END) {
+      // Only handle swipes if drawer is closed
+      if (!isDrawerOpen) {
+        // Right swipe (positive translation)
+        if (translationX > 50 || velocityX > 500) {
+          if (rightSwipeApp.packageName) {
+            console.log('Right swipe detected, launching:', rightSwipeApp.originalName);
+            handleHomeAppPress(rightSwipeApp);
+          }
         }
-      />
-    </SafeAreaView>
+        // Left swipe (negative translation)
+        else if (translationX < -50 || velocityX < -500) {
+          if (leftSwipeApp.packageName) {
+            console.log('Left swipe detected, launching:', leftSwipeApp.originalName);
+            handleHomeAppPress(leftSwipeApp);
+          }
+        }
+      }
+    }
+  };
+
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
+
+        {/* Main Black Screen with Swipe Detection */}
+        <PanGestureHandler onHandlerStateChange={handleSwipeGesture}>
+          <Animated.View style={styles.mainScreen}>
+            <TouchableOpacity
+              style={styles.touchArea}
+              onPress={toggleDrawer}
+              onLongPress={handleLongPress}
+              delayLongPress={800}
+              activeOpacity={1}
+            >
+              {numHomeApps > 0 && (
+                <View style={styles.homeAppsContainer}>
+                  {homeApps.slice(0, numHomeApps).map((app, index) => renderHomeAppItem(app, index))}
+                </View>
+              )}
+
+              <View style={styles.swipeIndicator}>
+                <Text style={styles.swipeText}>
+                  {isDrawerOpen ? 'Tap to close' : 'Tap for apps'}
+                </Text>
+                <Text style={styles.hintText}>
+                  Hold for config
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        </PanGestureHandler>
+
+        {/* App Drawer Overlay */}
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              transform: [{ translateY }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={closeDrawer}>
+            <View style={styles.drawerHandle} />
+          </TouchableOpacity>
+
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Search"
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            autoCapitalize="none"
+            autoFocus={isDrawerOpen}
+          />
+
+          {!loading && (
+            <FlatList
+              data={filteredApps}
+              renderItem={renderAppItem}
+              keyExtractor={(item) => item.packageName}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          )}
+        </Animated.View>
+
+        {/* App Selector Modal */}
+        <AppSelector
+          visible={appSelectorVisible}
+          onClose={() => {
+            setAppSelectorVisible(false);
+            setSelectedHomeAppIndex(null);
+          }}
+          onSelectApp={handleAppSelect}
+          currentApp={
+            selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
+              ? homeApps[selectedHomeAppIndex]
+              : undefined
+          }
+        />
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -326,8 +377,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#fff',
-    backgroundColor: '#111',
-    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
   },
   listContainer: {
     paddingHorizontal: 20,
@@ -354,5 +405,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  touchArea: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 100,
   },
 });

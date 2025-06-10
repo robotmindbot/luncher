@@ -1,4 +1,5 @@
-import { NativeModules, Platform } from 'react-native';
+import { requireNativeModule } from 'expo-modules-core';
+import { Platform } from 'react-native';
 
 export interface AppInfo {
   name: string;
@@ -11,7 +12,8 @@ export interface AppLauncherModule {
   launchApp(packageName: string): Promise<boolean>;
 }
 
-const { AppLauncher } = NativeModules;
+// Use Expo modules API to get the native module
+const AppLauncher = requireNativeModule('AppLauncher');
 
 // Mock data for development/testing
 const mockApps: AppInfo[] = [
@@ -25,15 +27,24 @@ const mockApps: AppInfo[] = [
   { name: 'Contacts', packageName: 'com.android.contacts' },
 ];
 
+let nativeModule: any = null;
+
+try {
+  nativeModule = AppLauncher;
+} catch (error) {
+  console.warn('AppLauncher native module not available:', error);
+}
+
 const AppLauncherWrapper: AppLauncherModule = {
   async getInstalledApps(): Promise<AppInfo[]> {
-    if (Platform.OS !== 'android' || !AppLauncher) {
+    if (Platform.OS !== 'android' || !nativeModule) {
       console.warn('AppLauncher native module not available, using mock data');
       return Promise.resolve(mockApps);
     }
 
     try {
-      return await AppLauncher.getInstalledApps();
+      console.log('Calling native getInstalledApps...');
+      return await nativeModule.getInstalledApps();
     } catch (error) {
       console.error('Failed to get installed apps from native module:', error);
       return mockApps;
@@ -41,13 +52,14 @@ const AppLauncherWrapper: AppLauncherModule = {
   },
 
   async launchApp(packageName: string): Promise<boolean> {
-    if (Platform.OS !== 'android' || !AppLauncher) {
+    if (Platform.OS !== 'android' || !nativeModule) {
       console.warn('AppLauncher native module not available, simulating app launch');
       return Promise.resolve(true);
     }
 
     try {
-      const result = await AppLauncher.launchApp(packageName);
+      console.log('Calling native launchApp for:', packageName);
+      const result = await nativeModule.launchApp(packageName);
       if (result === false) {
         throw new Error(`Failed to launch app: ${packageName} - No launch intent found`);
       }
