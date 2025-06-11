@@ -2,7 +2,7 @@ import { getSentryConfig } from "@/config/sentry";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
-import { Stack, useNavigationContainerRef } from "expo-router";
+import { Stack } from "expo-router";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
 // Font Size Context
@@ -189,37 +189,20 @@ const sentryConfig = getSentryConfig();
 const initializeSentry = () => {
   // Only initialize Sentry if not in development or if explicitly enabled
   if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_SENTRY === 'true') {
-    // Construct a new integration instance for navigation tracking
-    const navigationIntegration = Sentry.reactNavigationIntegration({
-      enableTimeToInitialDisplay: !isRunningInExpoGo(),
-    });
-
     Sentry.init({
       dsn: sentryConfig.dsn,
       debug: sentryConfig.debug,
       tracesSampleRate: sentryConfig.tracesSampleRate,
-      integrations: [navigationIntegration],
       enableNativeFramesTracking: sentryConfig.enableNativeFramesTracking && !isRunningInExpoGo(),
       beforeSend: (event) => event,
     });
-
-    return navigationIntegration;
   }
-  return null;
 };
 
-// Lazy initialize Sentry
-const navigationIntegration = initializeSentry();
+// Initialize Sentry
+initializeSentry();
 
 function RootLayoutNav() {
-  const ref = useNavigationContainerRef();
-
-  useEffect(() => {
-    if (ref?.current) {
-      navigationIntegration?.registerNavigationContainer(ref);
-    }
-  }, [ref]);
-
   return (
     <FontSizeProvider>
       <Stack>

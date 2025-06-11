@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useFontSize } from '../app/_layout';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
@@ -25,6 +25,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   const [searchQuery, setSearchQuery] = useState('');
   const [nickname, setNickname] = useState('');
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) {
@@ -36,8 +37,17 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
         setSelectedApp(null);
         setNickname('');
       }
+      // Focus the search input when modal opens
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    } else {
+      // Clear search when modal closes
+      setSearchQuery('');
     }
   }, [visible, currentApp]);
+
+
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -49,6 +59,13 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       setFilteredApps(filtered);
     }
   }, [searchQuery, apps]);
+
+  // Auto-select when there's only one search result
+  useEffect(() => {
+    if (searchQuery.trim() && filteredApps.length === 1) {
+      handleAppSelect(filteredApps[0]);
+    }
+  }, [filteredApps, searchQuery]);
 
   const loadApps = async () => {
     try {
@@ -96,24 +113,21 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   );
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={[styles.closeText, { fontSize }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={[styles.title, { fontSize: fontSize + 2 }]}>Select App</Text>
-          </View>
+          <TouchableOpacity onPress={onClose}>
+            <View style={styles.drawerHandle} />
+          </TouchableOpacity>
 
           <TextInput
             style={[styles.searchInput, { fontSize }]}
-            placeholder="Search apps"
-            placeholderTextColor="#666"
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
             autoCapitalize="none"
+            caretHidden={true}
+            ref={searchInputRef}
           />
 
           <FlatList
@@ -158,24 +172,24 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'flex-end',
   },
   modal: {
     backgroundColor: '#000',
-    borderRadius: 20,
-    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     maxHeight: '80%',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    alignSelf: 'center',
     marginBottom: 20,
-  },
-  closeText: {
-    color: '#fff',
-    marginRight: 20,
-    fontWeight: '300',
   },
   title: {
     color: '#fff',
@@ -186,8 +200,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 16,
     color: '#fff',
-    backgroundColor: '#111',
-    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
   },
   appsList: {
     maxHeight: 300,
