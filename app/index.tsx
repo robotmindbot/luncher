@@ -353,8 +353,7 @@ const styles = StyleSheet.create({
   mainScreen: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'flex-end',
-    paddingBottom: 100,
+    justifyContent: 'center',
   },
 
   drawer: {
@@ -411,7 +410,6 @@ const styles = StyleSheet.create({
   },
   touchArea: {
     flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: 100,
+    justifyContent: 'center',
   },
 });
