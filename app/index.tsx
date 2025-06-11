@@ -4,7 +4,6 @@ import {
   Animated,
   BackHandler,
   Dimensions,
-  FlatList,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -18,6 +17,7 @@ import { useFontSize } from './_layout';
 
 // Lazy load components
 const AppSelector = React.lazy(() => import('../components/AppSelector'));
+const SearchView = React.lazy(() => import('../components/SearchView'));
 
 // Lazy load the app launcher module
 let AppLauncherWrapper: any = null;
@@ -176,15 +176,7 @@ function LauncherHome() {
     }
   };
 
-  const renderAppItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.appItem}
-      onPress={() => launchApp(item.packageName)}
-      activeOpacity={0.6}
-    >
-      <Text style={[styles.appName, { fontSize: fontSize }]}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+
 
   const handleLongPress = () => {
     router.push('./config');
@@ -300,26 +292,18 @@ function LauncherHome() {
             <View style={styles.drawerHandle} />
           </TouchableOpacity>
 
-          <TextInput
-            ref={searchInputRef}
-            style={[styles.searchInput, { fontSize }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-            autoCapitalize="none"
-            autoFocus={isDrawerOpen}
-            caretHidden={true}
-          />
-
-          {!loading && (
-            <FlatList
-              data={filteredApps}
-              renderItem={renderAppItem}
-              keyExtractor={(item) => item.packageName}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContainer}
+          <React.Suspense fallback={<View />}>
+            <SearchView
+              ref={searchInputRef}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              filteredApps={filteredApps}
+              onAppPress={launchApp}
+              loading={loading}
+              fontSize={fontSize}
+              isOpen={isDrawerOpen}
             />
-          )}
+          </React.Suspense>
         </Animated.View>
 
         {/* App Selector Modal */}
@@ -375,26 +359,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 20,
   },
-  searchInput: {
-    height: 48,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    paddingHorizontal: 16,
-    color: '#fff',
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-  },
-  listContainer: {
-    paddingHorizontal: 20,
-  },
-  appItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-  },
-  appName: {
-    color: '#fff',
-    fontWeight: '300',
-  },
+
   homeAppItem: {
     paddingVertical: 16,
     paddingHorizontal: 4,
