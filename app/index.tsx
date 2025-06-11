@@ -1,13 +1,10 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   BackHandler,
   Dimensions,
   FlatList,
-  Linking,
-  Platform,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -17,14 +14,25 @@ import {
   View
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
-import AppSelector from '../components/AppSelector';
-import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
 import { useFontSize } from './_layout';
+
+// Lazy load components
+const AppSelector = React.lazy(() => import('../components/AppSelector'));
+
+// Lazy load the app launcher module
+let AppLauncherWrapper: any = null;
+const getAppLauncherWrapper = async () => {
+  if (!AppLauncherWrapper) {
+    const module = await import('../modules/app-launcher');
+    AppLauncherWrapper = module.default;
+  }
+  return AppLauncherWrapper;
+};
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Mock data for development/testing
-const mockApps: AppInfo[] = [
+const mockApps = [
   { name: 'Settings', packageName: 'com.android.settings' },
   { name: 'Calculator', packageName: 'com.android.calculator2' },
   { name: 'Camera', packageName: 'com.android.camera' },
@@ -38,155 +46,114 @@ const mockApps: AppInfo[] = [
 function LauncherHome() {
   const router = useRouter();
   const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp } = useFontSize();
-  const [apps, setApps] = useState<AppInfo[]>([]);
-  const [filteredApps, setFilteredApps] = useState<AppInfo[]>([]);
+  const [apps, setApps] = useState<any[]>([]);
+  const [filteredApps, setFilteredApps] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const appsLoadedRef = useRef(false);
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
-  useEffect(() => {
-    loadApps();
+  // Defer app loading until the drawer is first opened
+  const loadAppsDeferred = useCallback(async () => {
+    if (appsLoadedRef.current) return;
+
+    try {
+      setLoading(true);
+      console.log('Loading installed apps...');
+
+      const wrapper = await getAppLauncherWrapper();
+
+      // Check permissions first (simplified)
+      let realApps = [];
+      try {
+        realApps = await wrapper.getInstalledApps();
+      } catch (error) {
+        console.warn('Failed to load real apps, using mock data');
+      }
+
+      const sortedApps = realApps.length > 8 ? realApps : mockApps;
+      sortedApps.sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+      setApps(sortedApps);
+      setFilteredApps(sortedApps);
+      appsLoadedRef.current = true;
+      console.log('Apps loaded successfully, total:', sortedApps.length);
+    } catch (error) {
+      console.error('Error loading apps:', error);
+      // Fallback to mock data
+      const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
+      setApps(sortedApps);
+      setFilteredApps(sortedApps);
+      appsLoadedRef.current = true;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredApps(apps);
     } else {
-      const filtered = apps.filter(app =>
+      const filtered = apps.filter((app: any) =>
         app.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredApps(filtered);
     }
   }, [searchQuery, apps]);
 
+    // Auto-launch when there's only one search result
+  useEffect(() => {
+    if (searchQuery.trim() && filteredApps.length === 1 && !loading) {
+      launchApp(filteredApps[0].packageName);
+    }
+  }, [filteredApps, searchQuery, loading]);
+
   // Handle Android back button
   useEffect(() => {
     const backAction = () => {
       if (isDrawerOpen) {
         closeDrawer();
-        return true; // Prevent default behavior
+        return true;
       }
-      return false; // Allow default behavior (exit app)
+      return false;
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-
     return () => backHandler.remove();
   }, [isDrawerOpen]);
-
-  // Function to check and request QUERY_ALL_PACKAGES permission
-  const checkAndRequestPermissions = async () => {
-    if (Platform.OS !== 'android') return true;
-
-    try {
-      // First try to load apps to see if permission is already granted
-      const testApps = await AppLauncherWrapper.getInstalledApps();
-      if (testApps.length > 8) {
-        // If we get more than 8 apps, permission is likely granted
-        console.log('QUERY_ALL_PACKAGES permission appears to be granted');
-        return true;
-      }
-
-      // If we only get mock data, we need to request permission
-      Alert.alert(
-        'Permission Required',
-        'This launcher needs permission to see all installed apps. Please grant "Query all packages" permission in the next screen.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Open Settings',
-            onPress: () => {
-              // Open the app settings page
-              Linking.openSettings().catch((err) => {
-                console.error('Failed to open settings:', err);
-                Alert.alert(
-                  'Manual Setup Required',
-                  'Please go to Settings > Apps > Luncher > Permissions and enable "Query all packages" permission.',
-                  [{ text: 'OK' }]
-                );
-              });
-            },
-          },
-        ]
-      );
-      return false;
-    } catch (error) {
-      console.error('Error checking permissions:', error);
-      return false;
-    }
-  };
-
-  const loadApps = async () => {
-    try {
-      setLoading(true);
-      console.log('Loading installed apps...');
-
-      // Check permissions first
-      await checkAndRequestPermissions();
-
-      // Try to load real apps first, fallback to mock data
-      const realApps = await AppLauncherWrapper.getInstalledApps();
-      console.log('Retrieved apps count:', realApps.length);
-
-      if (realApps.length === 0) {
-        console.warn('No apps retrieved from native module, using mock data');
-      } else if (realApps.length <= 8) {
-        console.warn('Only got mock data - QUERY_ALL_PACKAGES permission may not be granted');
-      }
-
-      const sortedApps = realApps.length > 0 ? realApps : mockApps;
-      sortedApps.sort((a, b) => a.name.localeCompare(b.name));
-
-      setApps(sortedApps);
-      setFilteredApps(sortedApps);
-      console.log('Apps loaded successfully, total:', sortedApps.length);
-    } catch (error) {
-      console.error('Error loading apps:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-
-      // Fallback to mock data
-      const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
-      setApps(sortedApps);
-      setFilteredApps(sortedApps);
-      console.log('Using mock data, count:', sortedApps.length);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const launchApp = async (packageName: string) => {
     try {
       console.log('Attempting to launch app:', packageName);
-      await AppLauncherWrapper.launchApp(packageName);
+      const wrapper = await getAppLauncherWrapper();
+      await wrapper.launchApp(packageName);
       console.log('App launched successfully:', packageName);
-      // Close the drawer after launching an app
       closeDrawer();
     } catch (error) {
       console.error('Failed to launch app:', packageName, error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
     }
   };
 
-  const openDrawer = () => {
+    const openDrawer = () => {
     setIsDrawerOpen(true);
+    // Load apps when drawer is first opened
+    loadAppsDeferred();
+
     Animated.spring(translateY, {
       toValue: 0,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start(() => {
-      // Focus the search input after the animation completes
+      // Focus the search input immediately after animation
       setTimeout(() => {
         searchInputRef.current?.focus();
-      }, 100);
+      }, 50);
     });
   };
 
@@ -209,9 +176,7 @@ function LauncherHome() {
     }
   };
 
-
-
-  const renderAppItem = ({ item }: { item: AppInfo }) => (
+  const renderAppItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.appItem}
       onPress={() => launchApp(item.packageName)}
@@ -229,7 +194,8 @@ function LauncherHome() {
     if (app.packageName) {
       try {
         console.log('Attempting to launch home app:', app.packageName, app.originalName);
-        await AppLauncherWrapper.launchApp(app.packageName);
+        const wrapper = await getAppLauncherWrapper();
+        await wrapper.launchApp(app.packageName);
         console.log('Home app launched successfully:', app.packageName);
       } catch (error) {
         console.error('Failed to launch home app:', app.packageName, error);
@@ -336,14 +302,13 @@ function LauncherHome() {
 
           <TextInput
             ref={searchInputRef}
-            style={styles.searchInput}
-            placeholder="Search"
-            placeholderTextColor="#666"
+            style={[styles.searchInput, { fontSize }]}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
             autoCapitalize="none"
             autoFocus={isDrawerOpen}
+            caretHidden={true}
           />
 
           {!loading && (
@@ -358,19 +323,21 @@ function LauncherHome() {
         </Animated.View>
 
         {/* App Selector Modal */}
-        <AppSelector
-          visible={appSelectorVisible}
-          onClose={() => {
-            setAppSelectorVisible(false);
-            setSelectedHomeAppIndex(null);
-          }}
-          onSelectApp={handleAppSelect}
-          currentApp={
-            selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
-              ? homeApps[selectedHomeAppIndex]
-              : undefined
-          }
-        />
+        <React.Suspense fallback={<View />}>
+          <AppSelector
+            visible={appSelectorVisible}
+            onClose={() => {
+              setAppSelectorVisible(false);
+              setSelectedHomeAppIndex(null);
+            }}
+            onSelectApp={handleAppSelect}
+            currentApp={
+              selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
+                ? homeApps[selectedHomeAppIndex]
+                : undefined
+            }
+          />
+        </React.Suspense>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -389,20 +356,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 100,
   },
-  swipeIndicator: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  swipeText: {
-    color: '#555',
-    fontSize: 16,
-    opacity: 0.8,
-  },
-  hintText: {
-    color: '#555',
-    fontSize: 12,
-    opacity: 0.8,
-  },
+
   drawer: {
     position: 'absolute',
     top: 0,
@@ -427,7 +381,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
     paddingHorizontal: 16,
-    fontSize: 16,
     color: '#fff',
     backgroundColor: 'transparent',
     borderRadius: 0,
@@ -441,7 +394,6 @@ const styles = StyleSheet.create({
   },
   appName: {
     color: '#fff',
-    fontSize: 18,
     fontWeight: '300',
   },
   homeAppItem: {
@@ -450,7 +402,6 @@ const styles = StyleSheet.create({
   },
   homeAppName: {
     color: '#fff',
-    fontSize: 18,
     fontWeight: '300',
   },
   homeAppsContainer: {

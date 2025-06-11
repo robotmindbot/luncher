@@ -53,27 +53,47 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 
   const loadConfig = async () => {
     try {
-      const savedFontSize = await AsyncStorage.getItem('launcher_font_size');
-      const savedNumHomeApps = await AsyncStorage.getItem('launcher_num_home_apps');
-      const savedHomeApps = await AsyncStorage.getItem('launcher_home_apps');
-      const savedLeftSwipeApp = await AsyncStorage.getItem('launcher_left_swipe_app');
-      const savedRightSwipeApp = await AsyncStorage.getItem('launcher_right_swipe_app');
+      // Batch all AsyncStorage operations for better performance
+      const [
+        savedFontSize,
+        savedNumHomeApps,
+        savedHomeApps,
+        savedLeftSwipeApp,
+        savedRightSwipeApp
+      ] = await Promise.all([
+        AsyncStorage.getItem('launcher_font_size'),
+        AsyncStorage.getItem('launcher_num_home_apps'),
+        AsyncStorage.getItem('launcher_home_apps'),
+        AsyncStorage.getItem('launcher_left_swipe_app'),
+        AsyncStorage.getItem('launcher_right_swipe_app')
+      ]);
+
+      // Apply all settings in one batch to minimize re-renders
+      const updates: any = {};
 
       if (savedFontSize) {
-        setFontSizeState(parseInt(savedFontSize, 10));
+        updates.fontSize = parseInt(savedFontSize, 10);
       }
       if (savedNumHomeApps) {
-        setNumHomeAppsState(parseInt(savedNumHomeApps, 10));
+        updates.numHomeApps = parseInt(savedNumHomeApps, 10);
       }
       if (savedHomeApps) {
-        setHomeAppsState(JSON.parse(savedHomeApps));
+        updates.homeApps = JSON.parse(savedHomeApps);
       }
       if (savedLeftSwipeApp) {
-        setLeftSwipeAppState(JSON.parse(savedLeftSwipeApp));
+        updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
       }
       if (savedRightSwipeApp) {
-        setRightSwipeAppState(JSON.parse(savedRightSwipeApp));
+        updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
       }
+
+      // Batch state updates
+      if (updates.fontSize) setFontSizeState(updates.fontSize);
+      if (updates.numHomeApps) setNumHomeAppsState(updates.numHomeApps);
+      if (updates.homeApps) setHomeAppsState(updates.homeApps);
+      if (updates.leftSwipeApp) setLeftSwipeAppState(updates.leftSwipeApp);
+      if (updates.rightSwipeApp) setRightSwipeAppState(updates.rightSwipeApp);
+
     } catch (error) {
       console.error('Failed to load config:', error);
     }
@@ -165,33 +185,38 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 // Get Sentry configuration
 const sentryConfig = getSentryConfig();
 
-// Construct a new integration instance for navigation tracking
-const navigationIntegration = Sentry.reactNavigationIntegration({
-  enableTimeToInitialDisplay: !isRunningInExpoGo(),
-});
+// Initialize Sentry conditionally and lazily
+const initializeSentry = () => {
+  // Only initialize Sentry if not in development or if explicitly enabled
+  if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_SENTRY === 'true') {
+    // Construct a new integration instance for navigation tracking
+    const navigationIntegration = Sentry.reactNavigationIntegration({
+      enableTimeToInitialDisplay: !isRunningInExpoGo(),
+    });
 
-// Initialize Sentry
-Sentry.init({
-  dsn: sentryConfig.dsn,
-  debug: sentryConfig.debug,
-  tracesSampleRate: sentryConfig.tracesSampleRate,
-  integrations: [
-    navigationIntegration,
-  ],
-  enableNativeFramesTracking: sentryConfig.enableNativeFramesTracking && !isRunningInExpoGo(),
-  // Adds more context to errors
-  beforeSend: (event) => {
-    // You can filter or modify events here
-    return event;
-  },
-});
+    Sentry.init({
+      dsn: sentryConfig.dsn,
+      debug: sentryConfig.debug,
+      tracesSampleRate: sentryConfig.tracesSampleRate,
+      integrations: [navigationIntegration],
+      enableNativeFramesTracking: sentryConfig.enableNativeFramesTracking && !isRunningInExpoGo(),
+      beforeSend: (event) => event,
+    });
+
+    return navigationIntegration;
+  }
+  return null;
+};
+
+// Lazy initialize Sentry
+const navigationIntegration = initializeSentry();
 
 function RootLayoutNav() {
   const ref = useNavigationContainerRef();
 
   useEffect(() => {
     if (ref?.current) {
-      navigationIntegration.registerNavigationContainer(ref);
+      navigationIntegration?.registerNavigationContainer(ref);
     }
   }, [ref]);
 
