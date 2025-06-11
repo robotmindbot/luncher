@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useFontSize } from '../app/_layout';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
+import SearchView from './SearchView';
 
 interface AppSelectorProps {
   visible: boolean;
@@ -28,6 +28,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
   useEffect(() => {
     if (visible) {
+      setSearchQuery(''); // Clear search query when modal opens
       loadApps();
       if (currentApp && currentApp.packageName) {
         setSelectedApp({ name: currentApp.originalName, packageName: currentApp.packageName });
@@ -61,9 +62,12 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
     }
   };
 
-  const handleAppSelect = (app: AppInfo) => {
-    setSelectedApp(app);
-    setNickname(''); // Reset nickname when selecting new app
+  const handleAppPress = (packageName: string) => {
+    const app = filteredApps.find(a => a.packageName === packageName);
+    if (app) {
+      setSelectedApp(app);
+      setNickname(''); // Reset nickname when selecting new app
+    }
   };
 
   const handleSave = () => {
@@ -82,19 +86,6 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
     onClose();
   };
 
-  const renderAppItem = ({ item }: { item: AppInfo }) => (
-    <TouchableOpacity
-      style={[
-        styles.appItem,
-        selectedApp?.packageName === item.packageName && styles.selectedAppItem,
-      ]}
-      onPress={() => handleAppSelect(item)}
-      activeOpacity={0.6}
-    >
-      <Text style={[styles.appName, { fontSize }]}>{item.name}</Text>
-    </TouchableOpacity>
-  );
-
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
@@ -106,23 +97,17 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
             <Text style={[styles.title, { fontSize: fontSize + 2 }]}>Select App</Text>
           </View>
 
-          <TextInput
-            style={[styles.searchInput, { fontSize }]}
-            placeholder="Search apps"
-            placeholderTextColor="#666"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-
-          <FlatList
-            data={filteredApps}
-            renderItem={renderAppItem}
-            keyExtractor={(item) => item.packageName}
-            showsVerticalScrollIndicator={false}
-            style={styles.appsList}
-          />
+          <View style={styles.searchContainer}>
+            <SearchView
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              filteredApps={filteredApps.map(app => ({ name: app.name, packageName: app.packageName }))}
+              onAppPress={handleAppPress}
+              loading={false}
+              fontSize={fontSize}
+              isOpen={true}
+            />
+          </View>
 
           {selectedApp && (
             <View style={styles.selectedSection}>
@@ -181,28 +166,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '300',
   },
-  searchInput: {
-    height: 48,
+  searchContainer: {
+    maxHeight: 320,
     marginBottom: 20,
-    paddingHorizontal: 16,
-    color: '#fff',
-    backgroundColor: '#111',
-    borderRadius: 8,
-  },
-  appsList: {
-    maxHeight: 300,
-  },
-  appItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-  },
-  selectedAppItem: {
-    backgroundColor: '#222',
-    borderRadius: 8,
-  },
-  appName: {
-    color: '#fff',
-    fontWeight: '300',
   },
   selectedSection: {
     marginTop: 20,
