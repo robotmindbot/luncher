@@ -68,31 +68,22 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem('launcher_right_swipe_app')
       ]);
 
-      // Apply all settings in one batch to minimize re-renders
-      const updates: any = {};
-
-      if (savedFontSize) {
-        updates.fontSize = parseInt(savedFontSize, 10);
+      // Apply settings directly to avoid falsy value issues
+      if (savedFontSize !== null) {
+        setFontSizeState(parseInt(savedFontSize, 10));
       }
-      if (savedNumHomeApps) {
-        updates.numHomeApps = parseInt(savedNumHomeApps, 10);
+      if (savedNumHomeApps !== null) {
+        setNumHomeAppsState(parseInt(savedNumHomeApps, 10));
       }
-      if (savedHomeApps) {
-        updates.homeApps = JSON.parse(savedHomeApps);
+      if (savedHomeApps !== null) {
+        setHomeAppsState(JSON.parse(savedHomeApps));
       }
-      if (savedLeftSwipeApp) {
-        updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
+      if (savedLeftSwipeApp !== null) {
+        setLeftSwipeAppState(JSON.parse(savedLeftSwipeApp));
       }
-      if (savedRightSwipeApp) {
-        updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
+      if (savedRightSwipeApp !== null) {
+        setRightSwipeAppState(JSON.parse(savedRightSwipeApp));
       }
-
-      // Batch state updates
-      if (updates.fontSize) setFontSizeState(updates.fontSize);
-      if (updates.numHomeApps) setNumHomeAppsState(updates.numHomeApps);
-      if (updates.homeApps) setHomeAppsState(updates.homeApps);
-      if (updates.leftSwipeApp) setLeftSwipeAppState(updates.leftSwipeApp);
-      if (updates.rightSwipeApp) setRightSwipeAppState(updates.rightSwipeApp);
 
     } catch (error) {
       console.error('Failed to load config:', error);
