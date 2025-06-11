@@ -9,14 +9,12 @@ import {
     View,
 } from 'react-native';
 import AppSelector from '../components/AppSelector';
+import NumberInput from '../components/NumberInput';
 import { useFontSize } from './_layout';
 
-const FONT_SIZES = [
-  { label: 'Small', value: 14 },
-  { label: 'Medium', value: 18 },
-  { label: 'Large', value: 22 },
-  { label: 'Extra Large', value: 26 },
-];
+const FONT_SIZE_MIN = 12;
+const FONT_SIZE_MAX = 30;
+const FONT_SIZE_STEP = 2;
 
 export default function ConfigScreen() {
   const router = useRouter();
@@ -34,12 +32,28 @@ export default function ConfigScreen() {
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
 
-  const handleFontSizeSelect = (size: number) => {
-    setFontSize(size);
+  const handleFontSizeIncrement = () => {
+    if (fontSize < FONT_SIZE_MAX) {
+      setFontSize(fontSize + FONT_SIZE_STEP);
+    }
   };
 
-  const handleNumHomeAppsSelect = (num: number) => {
-    setNumHomeApps(num);
+  const handleFontSizeDecrement = () => {
+    if (fontSize > FONT_SIZE_MIN) {
+      setFontSize(fontSize - FONT_SIZE_STEP);
+    }
+  };
+
+  const handleNumHomeAppsIncrement = () => {
+    if (numHomeApps < 10) {
+      setNumHomeApps(numHomeApps + 1);
+    }
+  };
+
+  const handleNumHomeAppsDecrement = () => {
+    if (numHomeApps > 0) {
+      setNumHomeApps(numHomeApps - 1);
+    }
   };
 
   const handleSwipeAppPress = (type: 'left' | 'right') => {
@@ -71,49 +85,25 @@ export default function ConfigScreen() {
       <View style={styles.content}>
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2 }]}>Font Size</Text>
 
-        <View style={styles.optionsRow}>
-          {FONT_SIZES.map((size) => (
-            <TouchableOpacity
-              key={size.value}
-              style={styles.option}
-              onPress={() => handleFontSizeSelect(size.value)}
-              activeOpacity={0.6}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  { fontSize: size.value },
-                  fontSize === size.value && styles.selectedOptionText,
-                ]}
-              >
-                {size.label.charAt(0)}{fontSize === size.value && ' ✓'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <NumberInput
+          value={fontSize}
+          onIncrement={handleFontSizeIncrement}
+          onDecrement={handleFontSizeDecrement}
+          min={FONT_SIZE_MIN}
+          max={FONT_SIZE_MAX}
+          fontSize={fontSize}
+        />
 
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Home Apps</Text>
 
-        <View style={styles.optionsRow}>
-          {Array.from({ length: 11 }, (_, i) => i).map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.option}
-              onPress={() => handleNumHomeAppsSelect(num)}
-              activeOpacity={0.6}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  { fontSize },
-                  numHomeApps === num && styles.selectedOptionText,
-                ]}
-              >
-                {num}{numHomeApps === num && ' ✓'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <NumberInput
+          value={numHomeApps}
+          onIncrement={handleNumHomeAppsIncrement}
+          onDecrement={handleNumHomeAppsDecrement}
+          min={0}
+          max={10}
+          fontSize={fontSize}
+        />
 
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Swipe Gestures</Text>
 
@@ -188,22 +178,7 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginBottom: 20,
   },
-  option: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  optionText: {
-    color: '#fff',
-    fontWeight: '300',
-  },
-  selectedOptionText: {
-    color: '#fff',
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
+
   swipeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
