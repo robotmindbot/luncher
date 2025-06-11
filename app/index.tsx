@@ -47,7 +47,7 @@ function LauncherHome() {
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
   useEffect(() => {
     loadApps();
@@ -194,7 +194,7 @@ function LauncherHome() {
     setIsDrawerOpen(false);
     setSearchQuery(''); // Clear search when closing
     Animated.spring(translateY, {
-      toValue: SCREEN_HEIGHT,
+      toValue: SCREEN_HEIGHT + 100,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
@@ -209,10 +209,7 @@ function LauncherHome() {
     }
   };
 
-  const refreshApps = () => {
-    console.log('Refreshing app list...');
-    loadApps();
-  };
+
 
   const renderAppItem = ({ item }: { item: AppInfo }) => (
     <TouchableOpacity
@@ -331,6 +328,7 @@ function LauncherHome() {
               transform: [{ translateY }],
             },
           ]}
+          pointerEvents={isDrawerOpen ? 'auto' : 'none'}
         >
           <TouchableOpacity onPress={closeDrawer}>
             <View style={styles.drawerHandle} />
@@ -347,16 +345,6 @@ function LauncherHome() {
             autoCapitalize="none"
             autoFocus={isDrawerOpen}
           />
-
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={refreshApps}
-            activeOpacity={0.6}
-          >
-            <Text style={styles.refreshText}>
-              🔄 Refresh Apps {apps.length <= 8 ? '(Grant permission first)' : ''}
-            </Text>
-          </TouchableOpacity>
 
           {!loading && (
             <FlatList
@@ -474,18 +462,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     paddingBottom: 100,
-  },
-  refreshButton: {
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 10,
-    backgroundColor: '#111',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  refreshText: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.8,
   },
 });
