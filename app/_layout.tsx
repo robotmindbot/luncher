@@ -2,7 +2,7 @@ import { getSentryConfig } from "@/config/sentry";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
-import { Stack } from "expo-router";
+import { Stack, useNavigationContainerRef } from "expo-router";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
 // Font Size Context
@@ -68,22 +68,31 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem('launcher_right_swipe_app')
       ]);
 
-      // Apply settings directly to avoid falsy value issues
-      if (savedFontSize !== null) {
-        setFontSizeState(parseInt(savedFontSize, 10));
+      // Apply all settings in one batch to minimize re-renders
+      const updates: any = {};
+
+      if (savedFontSize) {
+        updates.fontSize = parseInt(savedFontSize, 10);
       }
-      if (savedNumHomeApps !== null) {
-        setNumHomeAppsState(parseInt(savedNumHomeApps, 10));
+      if (savedNumHomeApps) {
+        updates.numHomeApps = parseInt(savedNumHomeApps, 10);
       }
-      if (savedHomeApps !== null) {
-        setHomeAppsState(JSON.parse(savedHomeApps));
+      if (savedHomeApps) {
+        updates.homeApps = JSON.parse(savedHomeApps);
       }
-      if (savedLeftSwipeApp !== null) {
-        setLeftSwipeAppState(JSON.parse(savedLeftSwipeApp));
+      if (savedLeftSwipeApp) {
+        updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
       }
-      if (savedRightSwipeApp !== null) {
-        setRightSwipeAppState(JSON.parse(savedRightSwipeApp));
+      if (savedRightSwipeApp) {
+        updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
       }
+
+      // Batch state updates
+      if (updates.fontSize) setFontSizeState(updates.fontSize);
+      if (updates.numHomeApps) setNumHomeAppsState(updates.numHomeApps);
+      if (updates.homeApps) setHomeAppsState(updates.homeApps);
+      if (updates.leftSwipeApp) setLeftSwipeAppState(updates.leftSwipeApp);
+      if (updates.rightSwipeApp) setRightSwipeAppState(updates.rightSwipeApp);
 
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -180,20 +189,37 @@ const sentryConfig = getSentryConfig();
 const initializeSentry = () => {
   // Only initialize Sentry if not in development or if explicitly enabled
   if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_SENTRY === 'true') {
+    // Construct a new integration instance for navigation tracking
+    const navigationIntegration = Sentry.reactNavigationIntegration({
+      enableTimeToInitialDisplay: !isRunningInExpoGo(),
+    });
+
     Sentry.init({
       dsn: sentryConfig.dsn,
       debug: sentryConfig.debug,
       tracesSampleRate: sentryConfig.tracesSampleRate,
+      integrations: [navigationIntegration],
       enableNativeFramesTracking: sentryConfig.enableNativeFramesTracking && !isRunningInExpoGo(),
       beforeSend: (event) => event,
     });
+
+    return navigationIntegration;
   }
+  return null;
 };
 
-// Initialize Sentry
-initializeSentry();
+// Lazy initialize Sentry
+const navigationIntegration = initializeSentry();
 
 function RootLayoutNav() {
+  const ref = useNavigationContainerRef();
+
+  useEffect(() => {
+    if (ref?.current) {
+      navigationIntegration?.registerNavigationContainer(ref);
+    }
+  }, [ref]);
+
   return (
     <FontSizeProvider>
       <Stack>

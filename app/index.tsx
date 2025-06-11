@@ -113,16 +113,9 @@ function LauncherHome() {
     }
   }, [filteredApps, searchQuery, loading]);
 
-    // Handle Android back button
+  // Handle Android back button
   useEffect(() => {
     const backAction = () => {
-      // If AppSelector is visible, close it
-      if (appSelectorVisible) {
-        setAppSelectorVisible(false);
-        setSelectedHomeAppIndex(null);
-        return true;
-      }
-
       if (isDrawerOpen) {
         closeDrawer();
         return true;
@@ -132,7 +125,7 @@ function LauncherHome() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [isDrawerOpen, appSelectorVisible]);
+  }, [isDrawerOpen]);
 
   const launchApp = async (packageName: string) => {
     try {
@@ -197,24 +190,19 @@ function LauncherHome() {
     router.push('./config');
   };
 
-  const handleHomeAppPress = async (app: any, index?: number) => {
-    // If the app is not assigned (shows "select"), open the app selector
-    if (!app.packageName || app.originalName === 'select') {
-      if (index !== undefined) {
-        setSelectedHomeAppIndex(index);
-        setAppSelectorVisible(true);
+  const handleHomeAppPress = async (app: any) => {
+    if (app.packageName) {
+      try {
+        console.log('Attempting to launch home app:', app.packageName, app.originalName);
+        const wrapper = await getAppLauncherWrapper();
+        await wrapper.launchApp(app.packageName);
+        console.log('Home app launched successfully:', app.packageName);
+      } catch (error) {
+        console.error('Failed to launch home app:', app.packageName, error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
       }
-      return;
-    }
-
-    // Otherwise, launch the app
-    try {
-      console.log('Attempting to launch home app:', app.packageName, app.originalName);
-      const wrapper = await getAppLauncherWrapper();
-      await wrapper.launchApp(app.packageName);
-      console.log('Home app launched successfully:', app.packageName);
-    } catch (error) {
-      console.error('Failed to launch home app:', app.packageName, error);
+    } else {
+      console.log('No package name for home app:', app);
     }
   };
 
@@ -235,7 +223,7 @@ function LauncherHome() {
     <TouchableOpacity
       key={index}
       style={styles.homeAppItem}
-      onPress={() => handleHomeAppPress(app, index)}
+      onPress={() => handleHomeAppPress(app)}
       onLongPress={() => handleHomeAppLongPress(index)}
       activeOpacity={0.6}
     >
@@ -365,7 +353,8 @@ const styles = StyleSheet.create({
   mainScreen: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 100,
   },
 
   drawer: {
@@ -422,6 +411,7 @@ const styles = StyleSheet.create({
   },
   touchArea: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 100,
   },
 });
