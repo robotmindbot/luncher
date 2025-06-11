@@ -1,17 +1,20 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    BackHandler,
-    Dimensions,
-    FlatList,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  BackHandler,
+  Dimensions,
+  FlatList,
+  Linking,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import AppSelector from '../components/AppSelector';
@@ -76,10 +79,58 @@ function LauncherHome() {
     return () => backHandler.remove();
   }, [isDrawerOpen]);
 
+  // Function to check and request QUERY_ALL_PACKAGES permission
+  const checkAndRequestPermissions = async () => {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+      // First try to load apps to see if permission is already granted
+      const testApps = await AppLauncherWrapper.getInstalledApps();
+      if (testApps.length > 8) {
+        // If we get more than 8 apps, permission is likely granted
+        console.log('QUERY_ALL_PACKAGES permission appears to be granted');
+        return true;
+      }
+
+      // If we only get mock data, we need to request permission
+      Alert.alert(
+        'Permission Required',
+        'This launcher needs permission to see all installed apps. Please grant "Query all packages" permission in the next screen.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              // Open the app settings page
+              Linking.openSettings().catch((err) => {
+                console.error('Failed to open settings:', err);
+                Alert.alert(
+                  'Manual Setup Required',
+                  'Please go to Settings > Apps > Luncher > Permissions and enable "Query all packages" permission.',
+                  [{ text: 'OK' }]
+                );
+              });
+            },
+          },
+        ]
+      );
+      return false;
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+      return false;
+    }
+  };
+
   const loadApps = async () => {
     try {
       setLoading(true);
       console.log('Loading installed apps...');
+
+      // Check permissions first
+      await checkAndRequestPermissions();
 
       // Try to load real apps first, fallback to mock data
       const realApps = await AppLauncherWrapper.getInstalledApps();
@@ -87,6 +138,8 @@ function LauncherHome() {
 
       if (realApps.length === 0) {
         console.warn('No apps retrieved from native module, using mock data');
+      } else if (realApps.length <= 8) {
+        console.warn('Only got mock data - QUERY_ALL_PACKAGES permission may not be granted');
       }
 
       const sortedApps = realApps.length > 0 ? realApps : mockApps;
@@ -156,6 +209,11 @@ function LauncherHome() {
     }
   };
 
+  const refreshApps = () => {
+    console.log('Refreshing app list...');
+    loadApps();
+  };
+
   const renderAppItem = ({ item }: { item: AppInfo }) => (
     <TouchableOpacity
       style={styles.appItem}
@@ -213,13 +271,18 @@ function LauncherHome() {
   );
 
   const handleSwipeGesture = (event: any) => {
-    const { translationX, velocityX, state } = event.nativeEvent;
+    const { translationX, translationY, velocityX, velocityY, state } = event.nativeEvent;
 
     if (state === State.END) {
       // Only handle swipes if drawer is closed
       if (!isDrawerOpen) {
+        // Vertical swipe up (negative translationY) to open drawer
+        if (translationY < -50 || velocityY < -500) {
+          console.log('Swipe up detected, opening drawer');
+          openDrawer();
+        }
         // Right swipe (positive translation)
-        if (translationX > 50 || velocityX > 500) {
+        else if (translationX > 50 || velocityX > 500) {
           if (rightSwipeApp.packageName) {
             console.log('Right swipe detected, launching:', rightSwipeApp.originalName);
             handleHomeAppPress(rightSwipeApp);
@@ -256,15 +319,6 @@ function LauncherHome() {
                   {homeApps.slice(0, numHomeApps).map((app, index) => renderHomeAppItem(app, index))}
                 </View>
               )}
-
-              <View style={styles.swipeIndicator}>
-                <Text style={styles.swipeText}>
-                  {isDrawerOpen ? 'Tap to close' : 'Tap for apps'}
-                </Text>
-                <Text style={styles.hintText}>
-                  Hold for config
-                </Text>
-              </View>
             </TouchableOpacity>
           </Animated.View>
         </PanGestureHandler>
@@ -293,6 +347,16 @@ function LauncherHome() {
             autoCapitalize="none"
             autoFocus={isDrawerOpen}
           />
+
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={refreshApps}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.refreshText}>
+              🔄 Refresh Apps {apps.length <= 8 ? '(Grant permission first)' : ''}
+            </Text>
+          </TouchableOpacity>
 
           {!loading && (
             <FlatList
@@ -410,5 +474,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     paddingBottom: 100,
+  },
+  refreshButton: {
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  refreshText: {
+    color: '#fff',
+    fontSize: 14,
+    opacity: 0.8,
   },
 });
