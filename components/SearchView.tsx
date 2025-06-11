@@ -65,7 +65,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
     <>
       <TextInput
         ref={internalRef}
-        style={[styles.searchInput, { fontSize }]}
+        style={[styles.searchInput, { fontSize, lineHeight: fontSize * 1.4 }]}
         value={searchQuery}
         onChangeText={onSearchQueryChange}
         autoCorrect={false}
@@ -76,6 +76,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
         textContentType="none"
         autoComplete="off"
         spellCheck={false}
+        textAlignVertical="center"
       />
 
       {!loading && (
@@ -97,10 +98,11 @@ export default SearchView;
 
 const styles = StyleSheet.create({
   searchInput: {
-    height: 48,
+    height: 56,
     marginHorizontal: 20,
     marginBottom: 20,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     color: '#fff',
     backgroundColor: 'transparent',
     borderRadius: 0,
@@ -109,6 +111,8 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     outlineStyle: 'none',
+    elevation: 0,
+    shadowOpacity: 0,
   } as any,
   listContainer: {
     paddingHorizontal: 20,
