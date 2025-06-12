@@ -76,9 +76,6 @@ export default function ConfigScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={[styles.backText, { fontSize }]}>←</Text>
-        </TouchableOpacity>
         <Text style={[styles.title, { fontSize: fontSize + 6 }]}>Config</Text>
       </View>
 
@@ -159,11 +156,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
-  },
-  backText: {
-    color: '#fff',
-    marginRight: 20,
-    fontWeight: '300',
   },
   title: {
     color: '#fff',
