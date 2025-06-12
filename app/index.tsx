@@ -1,16 +1,16 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  BackHandler,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Animated,
+    BackHandler,
+    Dimensions,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useFontSize } from './_layout';
@@ -58,53 +58,103 @@ function LauncherHome() {
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
-  // Defer app loading until the drawer is first opened
+  // Load apps on first drawer open, with caching
   const loadAppsDeferred = useCallback(async () => {
-    if (appsLoadedRef.current) return;
+    if (appsLoadedRef.current) {
+      console.log('Apps already loaded, skipping...');
+      return;
+    }
 
     try {
       setLoading(true);
-      console.log('Loading installed apps...');
+      console.log('🔄 Loading installed apps...');
 
       const wrapper = await getAppLauncherWrapper();
 
-      // Check permissions first (simplified)
-      let realApps = [];
-      try {
-        realApps = await wrapper.getInstalledApps();
-      } catch (error) {
-        console.warn('Failed to load real apps, using mock data');
+      // First, get cached apps for immediate display
+      console.log('📱 Checking cache...');
+      let cachedApps = await wrapper.getCachedApps();
+      console.log('📱 Cache result:', cachedApps.length, 'apps');
+
+      if (cachedApps.length > 0) {
+        console.log('✅ Using cached apps for immediate display:', cachedApps.length);
+        console.log('📱 First few apps:', cachedApps.slice(0, 3).map((app: any) => app.name));
+        setApps(cachedApps);
+        setFilteredApps(cachedApps);
+        appsLoadedRef.current = true;
+        setLoading(false);
+
+        // Refresh in background to update cache
+        console.log('🔄 Starting background refresh...');
+        wrapper.refreshInstalledApps().then((refreshedApps: any[]) => {
+          if (refreshedApps.length > 0) {
+            console.log('✅ Background refresh completed:', refreshedApps.length);
+            console.log('📱 Updated apps:', refreshedApps.slice(0, 3).map(app => app.name));
+            setApps(refreshedApps);
+            setFilteredApps(refreshedApps);
+          }
+        }).catch((error: any) => {
+          console.warn('❌ Background refresh failed:', error);
+        });
+      } else {
+        // No cache available, load from native
+        console.log('❌ No cache available, loading from native...');
+        const freshApps = await wrapper.getInstalledApps();
+        console.log('📱 Fresh apps loaded:', freshApps.length);
+        const sortedApps = freshApps.length > 8 ? freshApps : mockApps;
+        console.log('📱 Using apps:', sortedApps.length, 'total');
+        console.log('📱 First few apps:', sortedApps.slice(0, 3).map((app: any) => app.name));
+
+        setApps(sortedApps);
+        setFilteredApps(sortedApps);
+        appsLoadedRef.current = true;
+        console.log('✅ Apps loaded successfully, total:', sortedApps.length);
       }
-
-      const sortedApps = realApps.length > 8 ? realApps : mockApps;
-      sortedApps.sort((a: any, b: any) => a.name.localeCompare(b.name));
-
-      setApps(sortedApps);
-      setFilteredApps(sortedApps);
-      appsLoadedRef.current = true;
-      console.log('Apps loaded successfully, total:', sortedApps.length);
     } catch (error) {
-      console.error('Error loading apps:', error);
+      console.error('❌ Error loading apps:', error);
       // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
+      console.log('📱 Using fallback mock data:', sortedApps.length);
       setApps(sortedApps);
       setFilteredApps(sortedApps);
       appsLoadedRef.current = true;
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
+    console.log('🔍 Search effect triggered:', {
+      searchQuery: searchQuery.trim(),
+      appsCount: apps.length,
+      appsLoaded: appsLoadedRef.current
+    });
+
     if (searchQuery.trim() === '') {
+      console.log('🔍 No search query, showing all apps:', apps.length);
       setFilteredApps(apps);
     } else {
       const filtered = apps.filter((app: any) =>
         app.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+      console.log('🔍 Filtered apps:', filtered.length, 'from', apps.length);
       setFilteredApps(filtered);
     }
   }, [searchQuery, apps]);
+
+  // Debug effect to track when SearchView should receive data
+  useEffect(() => {
+    console.log('🎯 Component state update:', {
+      filteredAppsCount: filteredApps.length,
+      appsCount: apps.length,
+      loading,
+      isDrawerOpen,
+      appsLoaded: appsLoadedRef.current,
+      searchQuery: searchQuery.trim(),
+      sampleApps: filteredApps.slice(0, 2).map((app: any) => app.name)
+    });
+  }, [filteredApps, apps, loading, isDrawerOpen, searchQuery]);
 
     // Auto-launch when there's only one search result
   useEffect(() => {

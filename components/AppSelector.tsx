@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useFontSize } from '../app/_layout';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
@@ -53,10 +53,31 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
   const loadApps = async () => {
     try {
-      const realApps = await AppLauncherWrapper.getInstalledApps();
-      const sortedApps = realApps.sort((a, b) => a.name.localeCompare(b.name));
-      setApps(sortedApps);
-      setFilteredApps(sortedApps);
+      // Try cached apps first for immediate display
+      let cachedApps = await AppLauncherWrapper.getCachedApps();
+
+      if (cachedApps.length > 0) {
+        console.log('AppSelector: Using cached apps');
+        setApps(cachedApps);
+        setFilteredApps(cachedApps);
+
+        // Refresh in background to update cache if needed
+        AppLauncherWrapper.refreshInstalledApps().then((refreshedApps) => {
+          if (refreshedApps.length > 0 && refreshedApps.length !== cachedApps.length) {
+            console.log('AppSelector: Background refresh updated apps');
+            setApps(refreshedApps);
+            setFilteredApps(refreshedApps);
+          }
+        }).catch((error) => {
+          console.warn('AppSelector: Background refresh failed:', error);
+        });
+      } else {
+        // No cache, get fresh apps
+        console.log('AppSelector: No cache, loading fresh apps');
+        const realApps = await AppLauncherWrapper.getInstalledApps();
+        setApps(realApps);
+        setFilteredApps(realApps);
+      }
     } catch (error) {
       console.error('Failed to load apps:', error);
     }
