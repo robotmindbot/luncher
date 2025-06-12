@@ -45,7 +45,7 @@ const mockApps = [
 
 function LauncherHome() {
   const router = useRouter();
-  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp } = useFontSize();
+  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp, setLeftSwipeApp, setRightSwipeApp } = useFontSize();
   const [apps, setApps] = useState<any[]>([]);
   const [filteredApps, setFilteredApps] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +53,7 @@ function LauncherHome() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
+  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
   const searchInputRef = useRef<TextInput>(null);
   const appsLoadedRef = useRef(false);
 
@@ -232,7 +233,7 @@ function LauncherHome() {
     router.push('./config');
   };
 
-  const handleHomeAppPress = async (app: any) => {
+  const handleHomeAppPress = async (app: any, index?: number) => {
     if (app.packageName) {
       try {
         console.log('Attempting to launch home app:', app.packageName, app.originalName);
@@ -244,7 +245,12 @@ function LauncherHome() {
         console.error('Error details:', JSON.stringify(error, null, 2));
       }
     } else {
-      console.log('No package name for home app:', app);
+      // No app assigned - open AppSelector for easy assignment
+      console.log('No app assigned, opening AppSelector for slot:', index);
+      if (typeof index === 'number') {
+        setSelectedHomeAppIndex(index);
+        setAppSelectorVisible(true);
+      }
     }
   };
 
@@ -256,16 +262,24 @@ function LauncherHome() {
   const handleAppSelect = (app: { packageName: string; originalName: string; nickname?: string }) => {
     if (selectedHomeAppIndex !== null) {
       setHomeApp(selectedHomeAppIndex, app);
+    } else if (selectedSwipeType) {
+      // Handle swipe app assignment
+      if (selectedSwipeType === 'left') {
+        setLeftSwipeApp(app);
+      } else if (selectedSwipeType === 'right') {
+        setRightSwipeApp(app);
+      }
     }
     setAppSelectorVisible(false);
     setSelectedHomeAppIndex(null);
+    setSelectedSwipeType(null);
   };
 
   const renderHomeAppItem = (app: any, index: number) => (
     <TouchableOpacity
       key={index}
       style={styles.homeAppItem}
-      onPress={() => handleHomeAppPress(app)}
+      onPress={() => handleHomeAppPress(app, index)}
       onLongPress={() => handleHomeAppLongPress(index)}
       activeOpacity={0.6}
     >
@@ -291,6 +305,10 @@ function LauncherHome() {
           if (rightSwipeApp.packageName) {
             console.log('Right swipe detected, launching:', rightSwipeApp.originalName);
             handleHomeAppPress(rightSwipeApp);
+          } else {
+            console.log('Right swipe detected, no app assigned - opening AppSelector');
+            setSelectedSwipeType('right');
+            setAppSelectorVisible(true);
           }
         }
         // Left swipe (negative translation)
@@ -298,6 +316,10 @@ function LauncherHome() {
           if (leftSwipeApp.packageName) {
             console.log('Left swipe detected, launching:', leftSwipeApp.originalName);
             handleHomeAppPress(leftSwipeApp);
+          } else {
+            console.log('Left swipe detected, no app assigned - opening AppSelector');
+            setSelectedSwipeType('left');
+            setAppSelectorVisible(true);
           }
         }
       }
@@ -363,11 +385,16 @@ function LauncherHome() {
             onClose={() => {
               setAppSelectorVisible(false);
               setSelectedHomeAppIndex(null);
+              setSelectedSwipeType(null);
             }}
             onSelectApp={handleAppSelect}
             currentApp={
               selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
                 ? homeApps[selectedHomeAppIndex]
+                : selectedSwipeType === 'left'
+                ? leftSwipeApp
+                : selectedSwipeType === 'right'
+                ? rightSwipeApp
                 : undefined
             }
           />
