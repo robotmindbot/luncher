@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
     Modal,
+    SafeAreaView,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
@@ -108,75 +110,69 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={[styles.closeText, { fontSize }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={[styles.title, { fontSize: fontSize + 2 }]}>Select App</Text>
-          </View>
+    <Modal visible={visible} transparent={false} animationType="slide">
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-          <View style={styles.searchContainer}>
-            <SearchView
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              filteredApps={filteredApps.map(app => ({ name: app.name, packageName: app.packageName }))}
-              onAppPress={handleAppPress}
-              loading={false}
-              fontSize={fontSize}
-              isOpen={true}
-            />
-          </View>
-
-          {selectedApp && (
-            <View style={styles.selectedSection}>
-              <Text style={[styles.selectedLabel, { fontSize }]}>Selected: {selectedApp.name}</Text>
-              <TextInput
-                style={[styles.nicknameInput, { fontSize }]}
-                placeholder="Nickname (optional)"
-                placeholderTextColor="#666"
-                value={nickname}
-                onChangeText={setNickname}
-                autoCorrect={false}
-                autoCapitalize="words"
-              />
-              <View style={styles.buttonRow}>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                  <Text style={[styles.buttonText, { fontSize }]}>Save</Text>
-                </TouchableOpacity>
-                {currentApp?.packageName && (
-                  <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
-                    <Text style={[styles.buttonText, { fontSize }]}>Remove</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose}>
+            <Text style={[styles.closeText, { fontSize }]}>✕</Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { fontSize: fontSize + 2 }]}>Select App</Text>
         </View>
-      </View>
+
+        <View style={styles.searchContainer}>
+          <SearchView
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            filteredApps={filteredApps.map(app => ({ name: app.name, packageName: app.packageName }))}
+            onAppPress={handleAppPress}
+            loading={false}
+            fontSize={fontSize}
+            isOpen={true}
+          />
+        </View>
+
+        {selectedApp && (
+          <View style={styles.selectedSection}>
+            <Text style={[styles.selectedLabel, { fontSize }]}>Selected: {selectedApp.name}</Text>
+            <TextInput
+              style={[styles.nicknameInput, { fontSize }]}
+              placeholder="Nickname (optional)"
+              placeholderTextColor="#666"
+              value={nickname}
+              onChangeText={setNickname}
+              autoCorrect={false}
+              autoCapitalize="words"
+            />
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                <Text style={[styles.buttonText, { fontSize }]}>Save</Text>
+              </TouchableOpacity>
+              {currentApp?.packageName && (
+                <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
+                  <Text style={[styles.buttonText, { fontSize }]}>Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  modal: {
     backgroundColor: '#000',
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 30,
   },
   closeText: {
     color: '#fff',
@@ -188,12 +184,11 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   searchContainer: {
-    maxHeight: 320,
-    marginBottom: 20,
+    flex: 1,
+    paddingHorizontal: 20,
   },
   selectedSection: {
-    marginTop: 20,
-    paddingTop: 20,
+    padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#222',
   },
@@ -235,3 +230,4 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
 });
+

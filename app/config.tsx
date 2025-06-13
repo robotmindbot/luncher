@@ -155,7 +155,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 60,
+    paddingBottom: 30,
   },
   title: {
     color: '#fff',
