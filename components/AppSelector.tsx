@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+    BackHandler,
     Modal,
     SafeAreaView,
     StatusBar,
@@ -41,6 +42,19 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       }
     }
   }, [visible, currentApp]);
+
+  // Handle Android back button in modal
+  useEffect(() => {
+    if (visible) {
+      const backAction = () => {
+        onClose();
+        return true; // Prevent default behavior
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+      return () => backHandler.remove();
+    }
+  }, [visible, onClose]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -110,7 +124,12 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   };
 
   return (
-    <Modal visible={visible} transparent={false} animationType="slide">
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
 

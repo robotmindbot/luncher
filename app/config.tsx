@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    BackHandler,
     SafeAreaView,
     StatusBar,
     StyleSheet,
@@ -31,6 +32,17 @@ export default function ConfigScreen() {
 
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
+
+  // Handle Android back button - go back to home
+  useEffect(() => {
+    const backAction = () => {
+      router.back();
+      return true; // Prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [router]);
 
   const handleFontSizeIncrement = () => {
     if (fontSize < FONT_SIZE_MAX) {

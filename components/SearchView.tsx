@@ -1,10 +1,10 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity
 } from 'react-native';
 
 interface App {
@@ -83,7 +83,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
         <FlatList
           data={filteredApps}
           renderItem={renderAppItem}
-          keyExtractor={(item) => item.packageName}
+          keyExtractor={(item, index) => `${item.packageName}_${index}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
         />
