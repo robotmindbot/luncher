@@ -14,6 +14,14 @@ import { useFontSize } from '../app/_layout';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
 import SearchView from './SearchView';
 
+// Current launcher package name
+const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
+
+// Filter function to hide launcher from app list
+const filterOutLauncher = (apps: AppInfo[]) => {
+  return apps.filter(app => app.packageName !== LAUNCHER_PACKAGE_NAME);
+};
+
 interface AppSelectorProps {
   visible: boolean;
   onClose: () => void;
@@ -74,15 +82,17 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
       if (cachedApps.length > 0) {
         console.log('AppSelector: Using cached apps');
-        setApps(cachedApps);
-        setFilteredApps(cachedApps);
+        const filteredCachedApps = filterOutLauncher(cachedApps);
+        setApps(filteredCachedApps);
+        setFilteredApps(filteredCachedApps);
 
         // Refresh in background to update cache if needed
         AppLauncherWrapper.refreshInstalledApps().then((refreshedApps) => {
           if (refreshedApps.length > 0 && refreshedApps.length !== cachedApps.length) {
             console.log('AppSelector: Background refresh updated apps');
-            setApps(refreshedApps);
-            setFilteredApps(refreshedApps);
+            const filteredRefreshedApps = filterOutLauncher(refreshedApps);
+            setApps(filteredRefreshedApps);
+            setFilteredApps(filteredRefreshedApps);
           }
         }).catch((error) => {
           console.warn('AppSelector: Background refresh failed:', error);
@@ -91,8 +101,9 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
         // No cache, get fresh apps
         console.log('AppSelector: No cache, loading fresh apps');
         const realApps = await AppLauncherWrapper.getInstalledApps();
-        setApps(realApps);
-        setFilteredApps(realApps);
+        const filteredRealApps = filterOutLauncher(realApps);
+        setApps(filteredRealApps);
+        setFilteredApps(filteredRealApps);
       }
     } catch (error) {
       console.error('Failed to load apps:', error);

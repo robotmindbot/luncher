@@ -31,6 +31,14 @@ const getAppLauncherWrapper = async () => {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Current launcher package name
+const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
+
+// Filter function to hide launcher from app list
+const filterOutLauncher = (apps: any[]) => {
+  return apps.filter(app => app.packageName !== LAUNCHER_PACKAGE_NAME);
+};
+
 // Mock data for development/testing
 const mockApps = [
   { name: 'Settings', packageName: 'com.android.settings' },
@@ -59,8 +67,8 @@ function LauncherHome() {
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
-  // Load apps on first drawer open, with caching
-  const loadAppsDeferred = useCallback(async () => {
+  // Load apps immediately on app start
+  const loadApps = useCallback(async () => {
     if (appsLoadedRef.current) {
       console.log('Apps already loaded, skipping...');
       return;
@@ -80,12 +88,13 @@ function LauncherHome() {
       if (cachedApps.length > 0) {
         console.log('✅ Using cached apps for immediate display:', cachedApps.length);
         console.log('📱 First few apps:', cachedApps.slice(0, 3).map((app: any) => app.name));
-        // Deduplicate apps by packageName to prevent duplicate keys
+                // Deduplicate apps by packageName to prevent duplicate keys and hide launcher
         const deduplicatedCached = cachedApps.filter((app: any, index: number, self: any[]) =>
           index === self.findIndex((a: any) => a.packageName === app.packageName)
         );
-        setApps(deduplicatedCached);
-        setFilteredApps(deduplicatedCached);
+        const filteredCached = filterOutLauncher(deduplicatedCached);
+        setApps(filteredCached);
+        setFilteredApps(filteredCached);
         appsLoadedRef.current = true;
         setLoading(false);
 
@@ -95,12 +104,13 @@ function LauncherHome() {
           if (refreshedApps.length > 0) {
             console.log('✅ Background refresh completed:', refreshedApps.length);
             console.log('📱 Updated apps:', refreshedApps.slice(0, 3).map(app => app.name));
-            // Deduplicate refreshed apps too
+                        // Deduplicate refreshed apps too and hide launcher
             const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
               index === self.findIndex((a: any) => a.packageName === app.packageName)
             );
-            setApps(deduplicatedRefreshed);
-            setFilteredApps(deduplicatedRefreshed);
+            const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
+            setApps(filteredRefreshed);
+            setFilteredApps(filteredRefreshed);
           }
         }).catch((error: any) => {
           console.warn('❌ Background refresh failed:', error);
@@ -114,12 +124,13 @@ function LauncherHome() {
         console.log('📱 Using apps:', sortedApps.length, 'total');
         console.log('📱 First few apps:', sortedApps.slice(0, 3).map((app: any) => app.name));
 
-        // Deduplicate fresh apps as well
+                // Deduplicate fresh apps as well and hide launcher
         const deduplicatedSorted = sortedApps.filter((app: any, index: number, self: any[]) =>
           index === self.findIndex((a: any) => a.packageName === app.packageName)
         );
-        setApps(deduplicatedSorted);
-        setFilteredApps(deduplicatedSorted);
+        const filteredSorted = filterOutLauncher(deduplicatedSorted);
+        setApps(filteredSorted);
+        setFilteredApps(filteredSorted);
         appsLoadedRef.current = true;
         console.log('✅ Apps loaded successfully, total:', sortedApps.length);
       }
@@ -128,18 +139,24 @@ function LauncherHome() {
       // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
       console.log('📱 Using fallback mock data:', sortedApps.length);
-      // Deduplicate fallback mock apps
+            // Deduplicate fallback mock apps and hide launcher
       const deduplicatedMockApps = sortedApps.filter((app: any, index: number, self: any[]) =>
         index === self.findIndex((a: any) => a.packageName === app.packageName)
       );
-      setApps(deduplicatedMockApps);
-      setFilteredApps(deduplicatedMockApps);
+      const filteredMockApps = filterOutLauncher(deduplicatedMockApps);
+      setApps(filteredMockApps);
+      setFilteredApps(filteredMockApps);
       appsLoadedRef.current = true;
     } finally {
       console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   }, []);
+
+  // Load apps on component mount
+  useEffect(() => {
+    loadApps();
+  }, [loadApps]);
 
     useEffect(() => {
     console.log('🔍 Search effect triggered:', {
@@ -208,8 +225,8 @@ function LauncherHome() {
 
     const openDrawer = () => {
     setIsDrawerOpen(true);
-    // Load apps when drawer is first opened
-    loadAppsDeferred();
+    // Load apps if not already loaded
+    loadApps();
 
     Animated.spring(translateY, {
       toValue: 0,
