@@ -60,26 +60,24 @@ const withAndroidLauncher = (config) => {
     mainActivity.$['android:stateNotNeeded'] = 'true';
     mainActivity.$['android:exported'] = 'true';
 
-    // Add launcher intent filter if it doesn't exist
-    const hasLauncherIntent = mainActivity['intent-filter'].some(filter => {
+    // Check if HOME launcher intent filter exists (different from regular LAUNCHER)
+    const hasHomeIntent = mainActivity['intent-filter'].some(filter => {
       if (!filter.category) return false;
       const categories = Array.isArray(filter.category) ? filter.category : [filter.category];
       return categories.some(cat =>
-        cat.$?.['android:name'] === 'android.intent.category.HOME' ||
-        cat.$?.['android:name'] === 'android.intent.category.LAUNCHER'
+        cat.$?.['android:name'] === 'android.intent.category.HOME'
       );
     });
 
-    if (!hasLauncherIntent) {
-      // Add the launcher intent filter
+    if (!hasHomeIntent) {
+      // Add the HOME launcher intent filter (essential for launcher apps)
       mainActivity['intent-filter'].push({
         action: [{
           $: { 'android:name': 'android.intent.action.MAIN' }
         }],
         category: [
           { $: { 'android:name': 'android.intent.category.HOME' } },
-          { $: { 'android:name': 'android.intent.category.DEFAULT' } },
-          { $: { 'android:name': 'android.intent.category.LAUNCHER' } }
+          { $: { 'android:name': 'android.intent.category.DEFAULT' } }
         ]
       });
     }

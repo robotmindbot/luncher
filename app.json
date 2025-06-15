@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "baby.waza.luncher"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +35,7 @@
     "plugins": [
       "expo-router",
       "./plugins/android-launcher-plugin.js",
-              [
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/bento.png",
