@@ -214,10 +214,23 @@ function LauncherHome() {
 
   // Handle Home button behavior - close drawer if open
   useEffect(() => {
+    let appStateChangeTime = 0;
+
     const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active' && isDrawerOpen) {
-        // When app becomes active from home button, close drawer
-        closeDrawer();
+      const currentTime = Date.now();
+
+      if (nextAppState === 'background') {
+        // Record when app goes to background
+        appStateChangeTime = currentTime;
+      } else if (nextAppState === 'active' && isDrawerOpen) {
+        // If app becomes active quickly after going to background,
+        // it's likely a Home button press (not a notification or other interruption)
+        const timeDiff = currentTime - appStateChangeTime;
+        if (timeDiff < 5000) { // Within 5 seconds
+          // When app becomes active from home button, close drawer
+          // This works because system already dismissed keyboard
+          closeDrawer();
+        }
       }
     };
 
