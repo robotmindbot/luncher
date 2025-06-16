@@ -430,6 +430,7 @@ function LauncherHome() {
                 ? rightSwipeApp
                 : undefined
             }
+            hideNickname={selectedSwipeType !== null}
           />
         </React.Suspense>
       </SafeAreaView>

@@ -14,7 +14,7 @@ import NumberInput from '../components/NumberInput';
 import { useFontSize } from './_layout';
 
 const FONT_SIZE_MIN = 12;
-const FONT_SIZE_MAX = 30;
+const FONT_SIZE_MAX = 36;
 const FONT_SIZE_STEP = 2;
 
 export default function ConfigScreen() {
@@ -186,11 +186,13 @@ const styles = StyleSheet.create({
 
   swipeSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 10,
+    marginTop: 10,
   },
   swipeOption: {
+    flex: 1,
     paddingVertical: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -198,10 +200,12 @@ const styles = StyleSheet.create({
   swipeLabel: {
     color: '#fff',
     fontWeight: '300',
+    textAlign: 'center',
   },
   swipeAppName: {
     color: '#fff',
     fontWeight: '300',
     marginTop: 10,
+    textAlign: 'center',
   },
 });

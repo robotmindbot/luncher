@@ -113,19 +113,22 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem('launcher_num_home_apps', num.toString());
       setNumHomeAppsState(num);
 
-      // Adjust homeApps array size
+      // Adjust homeApps array size while preserving existing data
       const newHomeApps = [...homeApps];
       if (num > newHomeApps.length) {
-        // Add empty slots
+        // Add empty slots for new positions
         while (newHomeApps.length < num) {
           newHomeApps.push({ packageName: '', originalName: 'select' });
         }
-      } else {
-        // Remove excess slots
-        newHomeApps.splice(num);
+        setHomeAppsState(newHomeApps);
+        await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
+      } else if (num < newHomeApps.length) {
+        // When reducing, save the full array but only display the first 'num' items
+        // This preserves data for when user increases the count again
+        setNumHomeAppsState(num);
+        // Don't modify the homeApps array, just change the display count
+        // The display logic will handle showing only the first 'num' items
       }
-      setHomeAppsState(newHomeApps);
-      await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
     } catch (error) {
       console.error('Failed to save num home apps:', error);
     }

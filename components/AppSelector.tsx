@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-    BackHandler,
-    Modal,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  BackHandler,
+  Modal,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useFontSize } from '../app/_layout';
 import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
