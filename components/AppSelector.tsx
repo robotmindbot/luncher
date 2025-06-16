@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  AppState,
   BackHandler,
   Modal,
   SafeAreaView,
@@ -61,6 +62,21 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
       const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
       return () => backHandler.remove();
+    }
+  }, [visible, onClose]);
+
+  // Handle Home button behavior - close modal when app becomes active
+  useEffect(() => {
+    if (visible) {
+      const handleAppStateChange = (nextAppState: string) => {
+        if (nextAppState === 'active') {
+          // When app becomes active from home button, close modal
+          onClose();
+        }
+      };
+
+      const subscription = AppState.addEventListener('change', handleAppStateChange);
+      return () => subscription?.remove();
     }
   }, [visible, onClose]);
 

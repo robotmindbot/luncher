@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  AppState,
   BackHandler,
   Dimensions,
   SafeAreaView,
@@ -209,6 +210,19 @@ function LauncherHome() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
+  }, [isDrawerOpen]);
+
+  // Handle Home button behavior - close drawer if open
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active' && isDrawerOpen) {
+        // When app becomes active from home button, close drawer
+        closeDrawer();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
   }, [isDrawerOpen]);
 
   const launchApp = async (packageName: string) => {
@@ -430,7 +444,6 @@ function LauncherHome() {
                 ? rightSwipeApp
                 : undefined
             }
-            hideNickname={selectedSwipeType !== null}
           />
         </React.Suspense>
       </SafeAreaView>

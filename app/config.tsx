@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    AppState,
     BackHandler,
     SafeAreaView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import AppSelector from '../components/AppSelector';
 import NumberInput from '../components/NumberInput';
@@ -42,6 +43,19 @@ export default function ConfigScreen() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
+  }, [router]);
+
+  // Handle Home button behavior - navigate to main screen when app becomes active
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // When app becomes active (e.g., from home button press), go to main screen
+        router.push('/');
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
   }, [router]);
 
   const handleFontSizeIncrement = () => {
