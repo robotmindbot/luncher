@@ -17,9 +17,9 @@ import {
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useFontSize } from './_layout';
 
-// Lazy load components
-const AppSelector = React.lazy(() => import('../components/AppSelector'));
-const SearchView = React.lazy(() => import('../components/SearchView'));
+// Import components directly (lazy loading doesn't work well in React Native)
+import AppSelector from '../components/AppSelector';
+import SearchView from '../components/SearchView';
 
 // Lazy load the app launcher module
 let AppLauncherWrapper: any = null;
@@ -505,43 +505,39 @@ function LauncherHome() {
             <View style={styles.drawerHandle} />
           </TouchableOpacity>
 
-          <React.Suspense fallback={<View />}>
-            <SearchView
-              ref={searchInputRef}
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              filteredApps={filteredApps}
-              onAppPress={launchApp}
-              loading={loading}
-              fontSize={fontSize}
-              isOpen={isDrawerOpen}
-              onRefresh={handleManualRefresh}
-              refreshing={refreshing}
-            />
-          </React.Suspense>
+          <SearchView
+            ref={searchInputRef}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            filteredApps={filteredApps}
+            onAppPress={launchApp}
+            loading={loading}
+            fontSize={fontSize}
+            isOpen={isDrawerOpen}
+            onRefresh={handleManualRefresh}
+            refreshing={refreshing}
+          />
         </Animated.View>
 
         {/* App Selector Modal */}
-        <React.Suspense fallback={<View />}>
-          <AppSelector
-            visible={appSelectorVisible}
-            onClose={() => {
-              setAppSelectorVisible(false);
-              setSelectedHomeAppIndex(null);
-              setSelectedSwipeType(null);
-            }}
-            onSelectApp={handleAppSelect}
-            currentApp={
-              selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
-                ? homeApps[selectedHomeAppIndex]
-                : selectedSwipeType === 'left'
-                ? leftSwipeApp
-                : selectedSwipeType === 'right'
-                ? rightSwipeApp
-                : undefined
-            }
-          />
-        </React.Suspense>
+        <AppSelector
+          visible={appSelectorVisible}
+          onClose={() => {
+            setAppSelectorVisible(false);
+            setSelectedHomeAppIndex(null);
+            setSelectedSwipeType(null);
+          }}
+          onSelectApp={handleAppSelect}
+          currentApp={
+            selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
+              ? homeApps[selectedHomeAppIndex]
+              : selectedSwipeType === 'left'
+              ? leftSwipeApp
+              : selectedSwipeType === 'right'
+              ? rightSwipeApp
+              : undefined
+          }
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
