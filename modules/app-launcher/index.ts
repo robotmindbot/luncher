@@ -165,19 +165,18 @@ const AppLauncherWrapper: AppLauncherModule = {
 
   async launchApp(packageName: string): Promise<boolean> {
     if (Platform.OS !== 'android' || !nativeModule) {
-      console.warn('AppLauncher native module not available, simulating app launch');
+      if (__DEV__) console.warn('AppLauncher native module not available, simulating app launch');
       return Promise.resolve(true);
     }
 
     try {
-      console.log('Calling native launchApp for:', packageName);
       const result = await nativeModule.launchApp(packageName);
       if (result === false) {
         throw new Error(`Failed to launch app: ${packageName} - No launch intent found`);
       }
       return result;
     } catch (error) {
-      console.error('Failed to launch app from native module:', error);
+      if (__DEV__) console.error('Failed to launch app from native module:', error);
       throw error;
     }
   }

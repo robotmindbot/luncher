@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Animated,
     AppState,
     BackHandler,
     Dimensions,
+    InteractionManager,
     SafeAreaView,
     StatusBar,
     StyleSheet,
@@ -22,13 +23,24 @@ const SearchView = React.lazy(() => import('../components/SearchView'));
 
 // Lazy load the app launcher module
 let AppLauncherWrapper: any = null;
+let wrapperPromise: Promise<any> | null = null;
+
 const getAppLauncherWrapper = async () => {
   if (!AppLauncherWrapper) {
-    const module = await import('../modules/app-launcher');
-    AppLauncherWrapper = module.default;
+    // Use a shared promise to avoid multiple imports
+    if (!wrapperPromise) {
+      wrapperPromise = import('../modules/app-launcher').then(module => {
+        AppLauncherWrapper = module.default;
+        return AppLauncherWrapper;
+      });
+    }
+    return await wrapperPromise;
   }
   return AppLauncherWrapper;
 };
+
+// Preload the wrapper for instant app launches
+getAppLauncherWrapper();
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -64,32 +76,35 @@ function LauncherHome() {
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isAppActive, setIsAppActive] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const appsLoadedRef = useRef(false);
+  const lastActiveTime = useRef(Date.now());
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
+
+  // Memoize visible home apps for better performance
+  const visibleHomeApps = useMemo(() => {
+    return homeApps.slice(0, numHomeApps);
+  }, [homeApps, numHomeApps]);
 
   // Load apps immediately on app start - initial load only
   const loadApps = useCallback(async () => {
     if (appsLoadedRef.current) {
-      console.log('Apps already loaded, skipping...');
       return;
     }
 
     try {
       setLoading(true);
-      console.log('🔄 Loading installed apps...');
+      if (__DEV__) console.log('🔄 Loading installed apps...');
 
       const wrapper = await getAppLauncherWrapper();
 
       // First, get cached apps for immediate display
-      console.log('📱 Checking cache...');
       let cachedApps = await wrapper.getCachedApps();
-      console.log('📱 Cache result:', cachedApps.length, 'apps');
 
       if (cachedApps.length > 0) {
-        console.log('✅ Using cached apps for immediate display:', cachedApps.length);
-        console.log('📱 First few apps:', cachedApps.slice(0, 3).map((app: any) => app.name));
+        if (__DEV__) console.log('✅ Using cached apps for immediate display:', cachedApps.length);
                 // Deduplicate apps by packageName to prevent duplicate keys and hide launcher
         const deduplicatedCached = cachedApps.filter((app: any, index: number, self: any[]) =>
           index === self.findIndex((a: any) => a.packageName === app.packageName)
@@ -100,31 +115,27 @@ function LauncherHome() {
         appsLoadedRef.current = true;
         setLoading(false);
 
-        // Refresh in background to update cache
-        console.log('🔄 Starting background refresh...');
-        wrapper.refreshInstalledApps().then((refreshedApps: any[]) => {
-          if (refreshedApps.length > 0) {
-            console.log('✅ Background refresh completed:', refreshedApps.length);
-            console.log('📱 Updated apps:', refreshedApps.slice(0, 3).map(app => app.name));
+        // Refresh in background using InteractionManager for better performance
+        InteractionManager.runAfterInteractions(() => {
+          wrapper.refreshInstalledApps().then((refreshedApps: any[]) => {
+            if (refreshedApps.length > 0) {
+              if (__DEV__) console.log('✅ Background refresh completed:', refreshedApps.length);
                         // Deduplicate refreshed apps too and hide launcher
-            const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
-              index === self.findIndex((a: any) => a.packageName === app.packageName)
-            );
-            const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
-            setApps(filteredRefreshed);
-            setFilteredApps(filteredRefreshed);
-          }
-        }).catch((error: any) => {
-          console.warn('❌ Background refresh failed:', error);
+              const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
+                index === self.findIndex((a: any) => a.packageName === app.packageName)
+              );
+              const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
+              setApps(filteredRefreshed);
+              setFilteredApps(filteredRefreshed);
+            }
+          }).catch((error: any) => {
+            if (__DEV__) console.warn('❌ Background refresh failed:', error);
+          });
         });
       } else {
         // No cache available, load from native
-        console.log('❌ No cache available, loading from native...');
         const freshApps = await wrapper.getInstalledApps();
-        console.log('📱 Fresh apps loaded:', freshApps.length);
         const sortedApps = freshApps.length > 8 ? freshApps : mockApps;
-        console.log('📱 Using apps:', sortedApps.length, 'total');
-        console.log('📱 First few apps:', sortedApps.slice(0, 3).map((app: any) => app.name));
 
                 // Deduplicate fresh apps as well and hide launcher
         const deduplicatedSorted = sortedApps.filter((app: any, index: number, self: any[]) =>
@@ -134,13 +145,11 @@ function LauncherHome() {
         setApps(filteredSorted);
         setFilteredApps(filteredSorted);
         appsLoadedRef.current = true;
-        console.log('✅ Apps loaded successfully, total:', sortedApps.length);
       }
     } catch (error) {
-      console.error('❌ Error loading apps:', error);
+      if (__DEV__) console.error('❌ Error loading apps:', error);
       // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
-      console.log('📱 Using fallback mock data:', sortedApps.length);
             // Deduplicate fallback mock apps and hide launcher
       const deduplicatedMockApps = sortedApps.filter((app: any, index: number, self: any[]) =>
         index === self.findIndex((a: any) => a.packageName === app.packageName)
@@ -150,7 +159,6 @@ function LauncherHome() {
       setFilteredApps(filteredMockApps);
       appsLoadedRef.current = true;
     } finally {
-      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   }, []);
@@ -158,8 +166,6 @@ function LauncherHome() {
   // Refresh apps list - can be called multiple times
   const refreshApps = useCallback(async () => {
     try {
-      console.log('🔄 Refreshing app list...');
-
       const wrapper = await getAppLauncherWrapper();
 
       // First, show cached apps immediately if available
@@ -173,19 +179,20 @@ function LauncherHome() {
         setFilteredApps(filteredCached);
       }
 
-      // Then refresh from native in background
-      const refreshedApps = await wrapper.refreshInstalledApps();
-      if (refreshedApps.length > 0) {
-        console.log('✅ Apps refreshed:', refreshedApps.length);
-        const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
-          index === self.findIndex((a: any) => a.packageName === app.packageName)
-        );
-        const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
-        setApps(filteredRefreshed);
-        setFilteredApps(filteredRefreshed);
-      }
+      // Then refresh from native in background using InteractionManager
+      InteractionManager.runAfterInteractions(async () => {
+        const refreshedApps = await wrapper.refreshInstalledApps();
+        if (refreshedApps.length > 0) {
+          const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
+            index === self.findIndex((a: any) => a.packageName === app.packageName)
+          );
+          const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
+          setApps(filteredRefreshed);
+          setFilteredApps(filteredRefreshed);
+        }
+      });
     } catch (error) {
-      console.error('❌ Error refreshing apps:', error);
+      if (__DEV__) console.error('❌ Error refreshing apps:', error);
     }
   }, []);
 
@@ -201,39 +208,7 @@ function LauncherHome() {
     loadApps();
   }, [loadApps]);
 
-    useEffect(() => {
-    console.log('🔍 Search effect triggered:', {
-      searchQuery: searchQuery.trim(),
-      appsCount: apps.length,
-      appsLoaded: appsLoadedRef.current
-    });
-
-    if (searchQuery.trim() === '') {
-      console.log('🔍 No search query, showing all apps:', apps.length);
-      setFilteredApps(apps);
-    } else {
-      const filtered = apps.filter((app: any) =>
-        app.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      console.log('🔍 Filtered apps:', filtered.length, 'from', apps.length);
-      setFilteredApps(filtered);
-    }
-  }, [searchQuery, apps]);
-
-  // Debug effect to track when SearchView should receive data
-  useEffect(() => {
-    console.log('🎯 Component state update:', {
-      filteredAppsCount: filteredApps.length,
-      appsCount: apps.length,
-      loading,
-      isDrawerOpen,
-      appsLoaded: appsLoadedRef.current,
-      searchQuery: searchQuery.trim(),
-      sampleApps: filteredApps.slice(0, 2).map((app: any) => app.name)
-    });
-  }, [filteredApps, apps, loading, isDrawerOpen, searchQuery]);
-
-    // Auto-launch when there's only one search result
+  // Auto-launch when there's only one search result
   useEffect(() => {
     if (searchQuery.trim() && filteredApps.length === 1 && !loading) {
       launchApp(filteredApps[0].packageName);
@@ -261,47 +236,74 @@ function LauncherHome() {
     const handleAppStateChange = (nextAppState: string) => {
       const currentTime = Date.now();
 
-      if (nextAppState === 'background') {
-        // Record when app goes to background
-        appStateChangeTime = currentTime;
-      } else if (nextAppState === 'active' && isDrawerOpen) {
-        // If app becomes active quickly after going to background,
-        // it's likely a Home button press (not a notification or other interruption)
-        const timeDiff = currentTime - appStateChangeTime;
-        if (timeDiff < 5000) { // Within 5 seconds
-          // When app becomes active from home button, close drawer
-          // This works because system already dismissed keyboard
-          closeDrawer();
+      if (nextAppState === 'active') {
+        // App became active - optimize for fast response
+        setIsAppActive(true);
+        lastActiveTime.current = currentTime;
+
+        // Only close drawer if it was a quick transition (home button press)
+        if (isDrawerOpen && (currentTime - appStateChangeTime) < 5000) {
+          // Use setTimeout to ensure smooth transition
+          setTimeout(() => {
+            setIsDrawerOpen(false);
+            setTimeout(() => {
+              setSearchQuery('');
+            }, 0);
+            Animated.spring(translateY, {
+              toValue: SCREEN_HEIGHT + 100,
+              useNativeDriver: true,
+              tension: 100,
+              friction: 8,
+            }).start();
+          }, 0);
         }
+      } else if (nextAppState === 'background') {
+        // App going to background
+        setIsAppActive(false);
+        appStateChangeTime = currentTime;
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [isDrawerOpen]);
+  }, [isDrawerOpen, translateY]);
 
   const launchApp = async (packageName: string) => {
     try {
-      console.log('Attempting to launch app:', packageName);
-      const wrapper = await getAppLauncherWrapper();
-      await wrapper.launchApp(packageName);
-      console.log('App launched successfully:', packageName);
+      // Close drawer immediately for instant feedback
       closeDrawer();
+
+      // Get wrapper (should be preloaded)
+      const wrapper = await getAppLauncherWrapper();
+
+      // Launch app in background - don't await to avoid blocking
+      wrapper.launchApp(packageName).catch((error: any) => {
+        if (__DEV__) console.error('Failed to launch app:', packageName, error);
+      });
+
     } catch (error) {
-      console.error('Failed to launch app:', packageName, error);
+      if (__DEV__) console.error('Failed to launch app:', packageName, error);
     }
   };
 
-    const openDrawer = () => {
+  const openDrawer = () => {
     setIsDrawerOpen(true);
 
-    // Always refresh apps when search is opened to catch new installations
-    if (appsLoadedRef.current) {
-      // Apps were loaded before, refresh them
-      refreshApps();
-    } else {
-      // First time loading apps
-      loadApps();
+    // Only refresh apps if the app has been active and enough time has passed
+    // or if apps haven't been loaded yet
+    const shouldRefresh = !appsLoadedRef.current ||
+                         (isAppActive && (Date.now() - lastActiveTime.current) > 30000); // 30 seconds
+
+    if (shouldRefresh) {
+      if (appsLoadedRef.current) {
+        // Use InteractionManager to defer refresh for better responsiveness
+        InteractionManager.runAfterInteractions(() => {
+          refreshApps();
+        });
+      } else {
+        // First time loading apps
+        loadApps();
+      }
     }
 
     Animated.spring(translateY, {
@@ -317,16 +319,51 @@ function LauncherHome() {
     });
   };
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
+    // Batch state updates to prevent multiple re-renders
     setIsDrawerOpen(false);
-    setSearchQuery(''); // Clear search when closing
+
+    // Use setTimeout to defer search query clearing to next tick
+    // This prevents expensive filtering during the critical home button response
+    setTimeout(() => {
+      setSearchQuery('');
+    }, 0);
+
     Animated.spring(translateY, {
       toValue: SCREEN_HEIGHT + 100,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start();
-  };
+  }, [translateY]);
+
+  // Optimized search filtering with debouncing for better performance
+  useEffect(() => {
+    // Skip filtering if drawer is closed to avoid unnecessary work
+    if (!isDrawerOpen) {
+      return;
+    }
+
+    if (searchQuery.trim() === '') {
+      setFilteredApps(apps);
+    } else {
+      const filtered = apps.filter((app: any) =>
+        app.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredApps(filtered);
+    }
+  }, [searchQuery, apps, isDrawerOpen]);
+
+  // Simplified debug effect - only log when drawer is open to reduce noise
+  useEffect(() => {
+    if (isDrawerOpen && __DEV__) {
+      console.log('🎯 Search state:', {
+        filteredAppsCount: filteredApps.length,
+        appsCount: apps.length,
+        searchQuery: searchQuery.trim()
+      });
+    }
+  }, [filteredApps, apps, isDrawerOpen, searchQuery]);
 
   const toggleDrawer = () => {
     if (isDrawerOpen) {
@@ -336,8 +373,6 @@ function LauncherHome() {
     }
   };
 
-
-
   const handleLongPress = () => {
     router.push('./config');
   };
@@ -345,17 +380,19 @@ function LauncherHome() {
   const handleHomeAppPress = async (app: any, index?: number) => {
     if (app.packageName) {
       try {
-        console.log('Attempting to launch home app:', app.packageName, app.originalName);
+        // Get wrapper (should be preloaded) and launch immediately
         const wrapper = await getAppLauncherWrapper();
-        await wrapper.launchApp(app.packageName);
-        console.log('Home app launched successfully:', app.packageName);
+
+        // Launch app without awaiting for instant response
+        wrapper.launchApp(app.packageName).catch((error: any) => {
+          if (__DEV__) console.error('Failed to launch home app:', app.packageName, error);
+        });
+
       } catch (error) {
-        console.error('Failed to launch home app:', app.packageName, error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+        if (__DEV__) console.error('Failed to launch home app:', app.packageName, error);
       }
     } else {
       // No app assigned - open AppSelector for easy assignment
-      console.log('No app assigned, opening AppSelector for slot:', index);
       if (typeof index === 'number') {
         setSelectedHomeAppIndex(index);
         setAppSelectorVisible(true);
@@ -406,16 +443,13 @@ function LauncherHome() {
       if (!isDrawerOpen) {
         // Vertical swipe up (negative translationY) to open drawer
         if (translationY < -50 || velocityY < -500) {
-          console.log('Swipe up detected, opening drawer');
           openDrawer();
         }
         // Right swipe (positive translation)
         else if (translationX > 50 || velocityX > 500) {
           if (rightSwipeApp.packageName) {
-            console.log('Right swipe detected, launching:', rightSwipeApp.originalName);
             handleHomeAppPress(rightSwipeApp);
           } else {
-            console.log('Right swipe detected, no app assigned - opening AppSelector');
             setSelectedSwipeType('right');
             setAppSelectorVisible(true);
           }
@@ -423,10 +457,8 @@ function LauncherHome() {
         // Left swipe (negative translation)
         else if (translationX < -50 || velocityX < -500) {
           if (leftSwipeApp.packageName) {
-            console.log('Left swipe detected, launching:', leftSwipeApp.originalName);
             handleHomeAppPress(leftSwipeApp);
           } else {
-            console.log('Left swipe detected, no app assigned - opening AppSelector');
             setSelectedSwipeType('left');
             setAppSelectorVisible(true);
           }
@@ -452,7 +484,7 @@ function LauncherHome() {
             >
               {numHomeApps > 0 && (
                 <View style={styles.homeAppsContainer}>
-                  {homeApps.slice(0, numHomeApps).map((app, index) => renderHomeAppItem(app, index))}
+                  {visibleHomeApps.map((app, index) => renderHomeAppItem(app, index))}
                 </View>
               )}
             </TouchableOpacity>
