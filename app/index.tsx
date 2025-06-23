@@ -1,17 +1,17 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  AppState,
-  BackHandler,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Animated,
+    AppState,
+    BackHandler,
+    Dimensions,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useFontSize } from './_layout';
@@ -63,12 +63,13 @@ function LauncherHome() {
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
   const appsLoadedRef = useRef(false);
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
-  // Load apps immediately on app start
+  // Load apps immediately on app start - initial load only
   const loadApps = useCallback(async () => {
     if (appsLoadedRef.current) {
       console.log('Apps already loaded, skipping...');
@@ -153,6 +154,47 @@ function LauncherHome() {
       setLoading(false);
     }
   }, []);
+
+  // Refresh apps list - can be called multiple times
+  const refreshApps = useCallback(async () => {
+    try {
+      console.log('🔄 Refreshing app list...');
+
+      const wrapper = await getAppLauncherWrapper();
+
+      // First, show cached apps immediately if available
+      const cachedApps = await wrapper.getCachedApps();
+      if (cachedApps.length > 0) {
+        const deduplicatedCached = cachedApps.filter((app: any, index: number, self: any[]) =>
+          index === self.findIndex((a: any) => a.packageName === app.packageName)
+        );
+        const filteredCached = filterOutLauncher(deduplicatedCached);
+        setApps(filteredCached);
+        setFilteredApps(filteredCached);
+      }
+
+      // Then refresh from native in background
+      const refreshedApps = await wrapper.refreshInstalledApps();
+      if (refreshedApps.length > 0) {
+        console.log('✅ Apps refreshed:', refreshedApps.length);
+        const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
+          index === self.findIndex((a: any) => a.packageName === app.packageName)
+        );
+        const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
+        setApps(filteredRefreshed);
+        setFilteredApps(filteredRefreshed);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing apps:', error);
+    }
+  }, []);
+
+  // Handle manual refresh from pull-to-refresh
+  const handleManualRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshApps();
+    setRefreshing(false);
+  }, [refreshApps]);
 
   // Load apps on component mount
   useEffect(() => {
@@ -252,8 +294,15 @@ function LauncherHome() {
 
     const openDrawer = () => {
     setIsDrawerOpen(true);
-    // Load apps if not already loaded
-    loadApps();
+
+    // Always refresh apps when search is opened to catch new installations
+    if (appsLoadedRef.current) {
+      // Apps were loaded before, refresh them
+      refreshApps();
+    } else {
+      // First time loading apps
+      loadApps();
+    }
 
     Animated.spring(translateY, {
       toValue: 0,
@@ -434,6 +483,8 @@ function LauncherHome() {
               loading={loading}
               fontSize={fontSize}
               isOpen={isDrawerOpen}
+              onRefresh={handleManualRefresh}
+              refreshing={refreshing}
             />
           </React.Suspense>
         </Animated.View>

@@ -42,12 +42,9 @@ try {
 
 // Cache configuration
 const CACHE_KEY = 'launcher_installed_apps';
-const CACHE_TIMESTAMP_KEY = 'launcher_apps_cache_timestamp';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // In-memory cache for faster access during the session
 let memoryCache: AppInfo[] | null = null;
-let memoryCacheTimestamp: number | null = null;
 
 const AppLauncherWrapper: AppLauncherModule = {
   // Original method - now with caching
@@ -69,54 +66,32 @@ const AppLauncherWrapper: AppLauncherModule = {
   // Get cached apps without calling native module
   async getCachedApps(): Promise<AppInfo[]> {
     try {
-      // Check in-memory cache first
-      if (memoryCache && memoryCacheTimestamp) {
-        const now = Date.now();
-        if (now - memoryCacheTimestamp < CACHE_DURATION) {
-          console.log('Using in-memory cache');
-          return memoryCache;
-        } else {
-          console.log('In-memory cache expired');
-          memoryCache = null;
-          memoryCacheTimestamp = null;
-        }
+      // Check in-memory cache first (fastest)
+      if (memoryCache && memoryCache.length > 0) {
+        console.log('Using in-memory cache:', memoryCache.length, 'apps');
+        return memoryCache;
       }
 
       // Check AsyncStorage cache
-      const [cachedAppsStr, timestampStr] = await Promise.all([
-        AsyncStorage.getItem(CACHE_KEY),
-        AsyncStorage.getItem(CACHE_TIMESTAMP_KEY)
-      ]);
-
-      if (cachedAppsStr && timestampStr) {
-        const timestamp = parseInt(timestampStr, 10);
-        const now = Date.now();
-
-        if (now - timestamp < CACHE_DURATION) {
-          const cachedApps = JSON.parse(cachedAppsStr);
-          // Note: AsyncStorage cache doesn't include icons to avoid size issues
-          // Update in-memory cache (will be lightweight until next refresh)
+      const cachedAppsStr = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedAppsStr) {
+        const cachedApps = JSON.parse(cachedAppsStr);
+        if (cachedApps && cachedApps.length > 0) {
+          // Update in-memory cache
           memoryCache = cachedApps;
-          memoryCacheTimestamp = timestamp;
-          console.log('Using AsyncStorage cache (without icons)');
+          console.log('Using AsyncStorage cache:', cachedApps.length, 'apps');
           return cachedApps;
-        } else {
-          console.log('AsyncStorage cache expired');
-          // Clear expired cache
-          await Promise.all([
-            AsyncStorage.removeItem(CACHE_KEY),
-            AsyncStorage.removeItem(CACHE_TIMESTAMP_KEY)
-          ]);
         }
       }
 
+      console.log('No cache found');
       return [];
     } catch (error) {
       console.error('Failed to get cached apps:', error);
 
-      // If it's a cache corruption error, clear the cache
+      // If it's a cache corruption error, clear all caches
       if (error instanceof Error && error.message.includes('Row too big')) {
-        console.log('Cache corrupted, clearing...');
+        console.log('Cache corrupted, clearing all caches...');
         await this.clearCache();
       }
 
@@ -154,11 +129,8 @@ const AppLauncherWrapper: AppLauncherModule = {
     // Helper method to update cache
   async updateCache(apps: AppInfo[]): Promise<void> {
     try {
-      const timestamp = Date.now();
-
       // Store full apps in memory cache (including icons)
       memoryCache = apps;
-      memoryCacheTimestamp = timestamp;
 
       // Store only essential data in AsyncStorage (exclude icons to reduce size)
       const lightweightApps = apps.map(app => ({
@@ -167,10 +139,8 @@ const AppLauncherWrapper: AppLauncherModule = {
         // Exclude icon to prevent "Row too big" error
       }));
 
-      await Promise.all([
-        AsyncStorage.setItem(CACHE_KEY, JSON.stringify(lightweightApps)),
-        AsyncStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString())
-      ]);
+      // Update AsyncStorage cache
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(lightweightApps));
 
       console.log('Cache updated successfully with', lightweightApps.length, 'apps');
     } catch (error) {
@@ -183,13 +153,9 @@ const AppLauncherWrapper: AppLauncherModule = {
     try {
       // Clear memory cache
       memoryCache = null;
-      memoryCacheTimestamp = null;
 
       // Clear AsyncStorage cache
-      await Promise.all([
-        AsyncStorage.removeItem(CACHE_KEY),
-        AsyncStorage.removeItem(CACHE_TIMESTAMP_KEY)
-      ]);
+      await AsyncStorage.removeItem(CACHE_KEY);
 
       console.log('Cache cleared successfully');
     } catch (error) {

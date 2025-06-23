@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
     FlatList,
+    RefreshControl,
     StyleSheet,
     Text,
     TextInput,
@@ -20,6 +21,8 @@ interface SearchViewProps {
   loading: boolean;
   fontSize: number;
   isOpen: boolean;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 const SearchView = forwardRef<TextInput, SearchViewProps>(({
@@ -29,7 +32,9 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   onAppPress,
   loading,
   fontSize,
-  isOpen
+  isOpen,
+  onRefresh,
+  refreshing = false
 }, ref) => {
   const internalRef = useRef<TextInput>(null);
 
@@ -86,6 +91,17 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
           keyExtractor={(item, index) => `${item.packageName}_${index}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#fff"
+                colors={["#fff"]}
+                progressBackgroundColor="#333"
+              />
+            ) : undefined
+          }
         />
       )}
     </>
