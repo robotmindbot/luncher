@@ -38,8 +38,8 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
 }, ref) => {
   const internalRef = useRef<TextInput>(null);
 
-  // Use imperative handle to expose the ref
-  useImperativeHandle(ref, () => internalRef.current as TextInput);
+  // Use imperative handle to expose the ref with null safety
+  useImperativeHandle(ref, () => internalRef.current!, []);
 
   // Focus the input when the search view opens - with longer delay for drawer animation
   useEffect(() => {

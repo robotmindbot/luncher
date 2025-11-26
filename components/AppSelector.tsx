@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AppState,
   BackHandler,
@@ -37,6 +37,15 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   const [searchQuery, setSearchQuery] = useState('');
   const [nickname, setNickname] = useState('');
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Track component mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -65,12 +74,17 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
     }
   }, [visible, onClose]);
 
-  // Handle Home button behavior - close modal when app becomes active
+  // Handle Home button behavior - close modal when app becomes active from background
   useEffect(() => {
     if (visible) {
+      let wasInBackground = false;
+
       const handleAppStateChange = (nextAppState: string) => {
-        if (nextAppState === 'active') {
-          // When app becomes active from home button, close modal
+        if (nextAppState === 'background') {
+          wasInBackground = true;
+        } else if (nextAppState === 'active' && wasInBackground) {
+          // When app becomes active from background (home button), close modal
+          wasInBackground = false;
           onClose();
         }
       };
@@ -96,6 +110,8 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       // Try cached apps first for immediate display
       let cachedApps = await AppLauncherWrapper.getCachedApps();
 
+      if (!isMountedRef.current) return; // Prevent state update after unmount
+
       if (cachedApps.length > 0) {
         console.log('AppSelector: Using cached apps');
         const filteredCachedApps = filterOutLauncher(cachedApps);
@@ -104,6 +120,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
         // Refresh in background to update cache if needed
         AppLauncherWrapper.refreshInstalledApps().then((refreshedApps) => {
+          if (!isMountedRef.current) return; // Prevent state update after unmount
           if (refreshedApps.length > 0 && refreshedApps.length !== cachedApps.length) {
             console.log('AppSelector: Background refresh updated apps');
             const filteredRefreshedApps = filterOutLauncher(refreshedApps);
@@ -117,6 +134,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
         // No cache, get fresh apps
         console.log('AppSelector: No cache, loading fresh apps');
         const realApps = await AppLauncherWrapper.getInstalledApps();
+        if (!isMountedRef.current) return; // Prevent state update after unmount
         const filteredRealApps = filterOutLauncher(realApps);
         setApps(filteredRealApps);
         setFilteredApps(filteredRealApps);

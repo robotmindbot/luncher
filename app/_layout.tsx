@@ -78,18 +78,30 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         updates.numHomeApps = parseInt(savedNumHomeApps, 10);
       }
       if (savedHomeApps) {
-        updates.homeApps = JSON.parse(savedHomeApps);
+        try {
+          updates.homeApps = JSON.parse(savedHomeApps);
+        } catch {
+          console.error('Failed to parse savedHomeApps, using default');
+        }
       }
       if (savedLeftSwipeApp) {
-        updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
+        try {
+          updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
+        } catch {
+          console.error('Failed to parse savedLeftSwipeApp, using default');
+        }
       }
       if (savedRightSwipeApp) {
-        updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
+        try {
+          updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
+        } catch {
+          console.error('Failed to parse savedRightSwipeApp, using default');
+        }
       }
 
       // Batch state updates
-      if (updates.fontSize) setFontSizeState(updates.fontSize);
-      if (updates.numHomeApps) setNumHomeAppsState(updates.numHomeApps);
+      if (updates.fontSize !== undefined) setFontSizeState(updates.fontSize);
+      if (updates.numHomeApps !== undefined) setNumHomeAppsState(updates.numHomeApps);
       if (updates.homeApps) setHomeAppsState(updates.homeApps);
       if (updates.leftSwipeApp) setLeftSwipeAppState(updates.leftSwipeApp);
       if (updates.rightSwipeApp) setRightSwipeAppState(updates.rightSwipeApp);
@@ -122,13 +134,10 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         }
         setHomeAppsState(newHomeApps);
         await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
-      } else if (num < newHomeApps.length) {
-        // When reducing, save the full array but only display the first 'num' items
-        // This preserves data for when user increases the count again
-        setNumHomeAppsState(num);
-        // Don't modify the homeApps array, just change the display count
-        // The display logic will handle showing only the first 'num' items
       }
+      // When reducing, don't modify the homeApps array, just change the display count
+      // The display logic will handle showing only the first 'num' items
+      // This preserves data for when user increases the count again
     } catch (error) {
       console.error('Failed to save num home apps:', error);
     }

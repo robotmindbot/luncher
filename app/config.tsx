@@ -47,9 +47,14 @@ export default function ConfigScreen() {
 
   // Handle Home button behavior - navigate to main screen when app becomes active
   useEffect(() => {
+    let wasInBackground = false;
+
     const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        // When app becomes active (e.g., from home button press), go to main screen
+      if (nextAppState === 'background') {
+        wasInBackground = true;
+      } else if (nextAppState === 'active' && wasInBackground) {
+        // When app becomes active from background (e.g., home button press), go to main screen
+        wasInBackground = false;
         router.push('/');
       }
     };

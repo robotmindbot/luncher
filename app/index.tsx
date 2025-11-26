@@ -80,6 +80,15 @@ function LauncherHome() {
   const searchInputRef = useRef<TextInput>(null);
   const appsLoadedRef = useRef(false);
   const lastActiveTime = useRef(Date.now());
+  const isMountedRef = useRef(true);
+
+  // Track component mount state to prevent state updates after unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT + 100)).current;
 
@@ -118,6 +127,7 @@ function LauncherHome() {
         // Refresh in background using InteractionManager for better performance
         InteractionManager.runAfterInteractions(() => {
           wrapper.refreshInstalledApps().then((refreshedApps: any[]) => {
+            if (!isMountedRef.current) return; // Prevent state update after unmount
             if (refreshedApps.length > 0) {
               if (__DEV__) console.log('✅ Background refresh completed:', refreshedApps.length);
                         // Deduplicate refreshed apps too and hide launcher
@@ -182,6 +192,7 @@ function LauncherHome() {
       // Then refresh from native in background using InteractionManager
       InteractionManager.runAfterInteractions(async () => {
         const refreshedApps = await wrapper.refreshInstalledApps();
+        if (!isMountedRef.current) return; // Prevent state update after unmount
         if (refreshedApps.length > 0) {
           const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
             index === self.findIndex((a: any) => a.packageName === app.packageName)
@@ -203,6 +214,25 @@ function LauncherHome() {
     setRefreshing(false);
   }, [refreshApps]);
 
+  // Define closeDrawer before useEffects that use it
+  const closeDrawer = useCallback(() => {
+    // Batch state updates to prevent multiple re-renders
+    setIsDrawerOpen(false);
+
+    // Use setTimeout to defer search query clearing to next tick
+    // This prevents expensive filtering during the critical home button response
+    setTimeout(() => {
+      setSearchQuery('');
+    }, 0);
+
+    Animated.spring(translateY, {
+      toValue: SCREEN_HEIGHT + 100,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  }, [translateY]);
+
   // Load apps on component mount
   useEffect(() => {
     loadApps();
@@ -213,6 +243,7 @@ function LauncherHome() {
     if (searchQuery.trim() && filteredApps.length === 1 && !loading) {
       launchApp(filteredApps[0].packageName);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredApps, searchQuery, loading]);
 
   // Handle Android back button - always stay on home screen
@@ -227,11 +258,12 @@ function LauncherHome() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [isDrawerOpen]);
+  }, [isDrawerOpen, closeDrawer]);
 
   // Handle Home button behavior - close drawer if open
   useEffect(() => {
     let appStateChangeTime = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const handleAppStateChange = (nextAppState: string) => {
       const currentTime = Date.now();
@@ -244,11 +276,10 @@ function LauncherHome() {
         // Only close drawer if it was a quick transition (home button press)
         if (isDrawerOpen && (currentTime - appStateChangeTime) < 5000) {
           // Use setTimeout to ensure smooth transition
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
+            if (!isMountedRef.current) return;
             setIsDrawerOpen(false);
-            setTimeout(() => {
-              setSearchQuery('');
-            }, 0);
+            setSearchQuery('');
             Animated.spring(translateY, {
               toValue: SCREEN_HEIGHT + 100,
               useNativeDriver: true,
@@ -265,7 +296,10 @@ function LauncherHome() {
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
+    return () => {
+      subscription?.remove();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isDrawerOpen, translateY]);
 
   const launchApp = async (packageName: string) => {
@@ -318,24 +352,6 @@ function LauncherHome() {
       }, 50);
     });
   };
-
-  const closeDrawer = useCallback(() => {
-    // Batch state updates to prevent multiple re-renders
-    setIsDrawerOpen(false);
-
-    // Use setTimeout to defer search query clearing to next tick
-    // This prevents expensive filtering during the critical home button response
-    setTimeout(() => {
-      setSearchQuery('');
-    }, 0);
-
-    Animated.spring(translateY, {
-      toValue: SCREEN_HEIGHT + 100,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
-  }, [translateY]);
 
   // Optimized search filtering with debouncing for better performance
   useEffect(() => {
