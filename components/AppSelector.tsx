@@ -121,13 +121,23 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
         // Refresh in background to update cache if needed
         AppLauncherWrapper.refreshInstalledApps().then((refreshedApps) => {
           if (!isMountedRef.current) return; // Prevent state update after unmount
-          if (refreshedApps.length > 0 && refreshedApps.length !== cachedApps.length) {
-            console.log('AppSelector: Background refresh updated apps');
-            const filteredRefreshedApps = filterOutLauncher(refreshedApps);
-            setApps(filteredRefreshedApps);
-            setFilteredApps(filteredRefreshedApps);
+          if (refreshedApps.length > 0) {
+            // Compare content, not just length - apps may have changed even if count is same
+            const cachedPackages = new Set(cachedApps.map(a => a.packageName));
+            const refreshedPackages = new Set(refreshedApps.map(a => a.packageName));
+            const hasChanges = refreshedApps.length !== cachedApps.length ||
+              refreshedApps.some(a => !cachedPackages.has(a.packageName)) ||
+              cachedApps.some(a => !refreshedPackages.has(a.packageName));
+
+            if (hasChanges) {
+              console.log('AppSelector: Background refresh updated apps');
+              const filteredRefreshedApps = filterOutLauncher(refreshedApps);
+              setApps(filteredRefreshedApps);
+              setFilteredApps(filteredRefreshedApps);
+            }
           }
         }).catch((error) => {
+          if (!isMountedRef.current) return;
           console.warn('AppSelector: Background refresh failed:', error);
         });
       } else {

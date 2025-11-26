@@ -52,6 +52,16 @@ const filterOutLauncher = (apps: any[]) => {
   return apps.filter(app => app.packageName !== LAUNCHER_PACKAGE_NAME);
 };
 
+// Deduplicate apps by packageName to prevent duplicate keys
+const deduplicateApps = (apps: any[]) => {
+  const seen = new Set<string>();
+  return apps.filter((app: any) => {
+    if (!app?.packageName || seen.has(app.packageName)) return false;
+    seen.add(app.packageName);
+    return true;
+  });
+};
+
 // Mock data for development/testing
 const mockApps = [
   { name: 'Settings', packageName: 'com.android.settings' },
@@ -114,11 +124,7 @@ function LauncherHome() {
 
       if (cachedApps.length > 0) {
         if (__DEV__) console.log('✅ Using cached apps for immediate display:', cachedApps.length);
-                // Deduplicate apps by packageName to prevent duplicate keys and hide launcher
-        const deduplicatedCached = cachedApps.filter((app: any, index: number, self: any[]) =>
-          index === self.findIndex((a: any) => a.packageName === app.packageName)
-        );
-        const filteredCached = filterOutLauncher(deduplicatedCached);
+        const filteredCached = filterOutLauncher(deduplicateApps(cachedApps));
         setApps(filteredCached);
         setFilteredApps(filteredCached);
         appsLoadedRef.current = true;
@@ -130,15 +136,12 @@ function LauncherHome() {
             if (!isMountedRef.current) return; // Prevent state update after unmount
             if (refreshedApps.length > 0) {
               if (__DEV__) console.log('✅ Background refresh completed:', refreshedApps.length);
-                        // Deduplicate refreshed apps too and hide launcher
-              const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
-                index === self.findIndex((a: any) => a.packageName === app.packageName)
-              );
-              const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
+              const filteredRefreshed = filterOutLauncher(deduplicateApps(refreshedApps));
               setApps(filteredRefreshed);
               setFilteredApps(filteredRefreshed);
             }
           }).catch((error: any) => {
+            if (!isMountedRef.current) return;
             if (__DEV__) console.warn('❌ Background refresh failed:', error);
           });
         });
@@ -146,12 +149,7 @@ function LauncherHome() {
         // No cache available, load from native
         const freshApps = await wrapper.getInstalledApps();
         const sortedApps = freshApps.length > 8 ? freshApps : mockApps;
-
-                // Deduplicate fresh apps as well and hide launcher
-        const deduplicatedSorted = sortedApps.filter((app: any, index: number, self: any[]) =>
-          index === self.findIndex((a: any) => a.packageName === app.packageName)
-        );
-        const filteredSorted = filterOutLauncher(deduplicatedSorted);
+        const filteredSorted = filterOutLauncher(deduplicateApps(sortedApps));
         setApps(filteredSorted);
         setFilteredApps(filteredSorted);
         appsLoadedRef.current = true;
@@ -160,11 +158,7 @@ function LauncherHome() {
       if (__DEV__) console.error('❌ Error loading apps:', error);
       // Fallback to mock data
       const sortedApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
-            // Deduplicate fallback mock apps and hide launcher
-      const deduplicatedMockApps = sortedApps.filter((app: any, index: number, self: any[]) =>
-        index === self.findIndex((a: any) => a.packageName === app.packageName)
-      );
-      const filteredMockApps = filterOutLauncher(deduplicatedMockApps);
+      const filteredMockApps = filterOutLauncher(deduplicateApps(sortedApps));
       setApps(filteredMockApps);
       setFilteredApps(filteredMockApps);
       appsLoadedRef.current = true;
@@ -181,25 +175,24 @@ function LauncherHome() {
       // First, show cached apps immediately if available
       const cachedApps = await wrapper.getCachedApps();
       if (cachedApps.length > 0) {
-        const deduplicatedCached = cachedApps.filter((app: any, index: number, self: any[]) =>
-          index === self.findIndex((a: any) => a.packageName === app.packageName)
-        );
-        const filteredCached = filterOutLauncher(deduplicatedCached);
+        const filteredCached = filterOutLauncher(deduplicateApps(cachedApps));
         setApps(filteredCached);
         setFilteredApps(filteredCached);
       }
 
       // Then refresh from native in background using InteractionManager
       InteractionManager.runAfterInteractions(async () => {
-        const refreshedApps = await wrapper.refreshInstalledApps();
-        if (!isMountedRef.current) return; // Prevent state update after unmount
-        if (refreshedApps.length > 0) {
-          const deduplicatedRefreshed = refreshedApps.filter((app: any, index: number, self: any[]) =>
-            index === self.findIndex((a: any) => a.packageName === app.packageName)
-          );
-          const filteredRefreshed = filterOutLauncher(deduplicatedRefreshed);
-          setApps(filteredRefreshed);
-          setFilteredApps(filteredRefreshed);
+        try {
+          const refreshedApps = await wrapper.refreshInstalledApps();
+          if (!isMountedRef.current) return; // Prevent state update after unmount
+          if (refreshedApps.length > 0) {
+            const filteredRefreshed = filterOutLauncher(deduplicateApps(refreshedApps));
+            setApps(filteredRefreshed);
+            setFilteredApps(filteredRefreshed);
+          }
+        } catch (error) {
+          if (!isMountedRef.current) return;
+          if (__DEV__) console.error('❌ Error refreshing apps:', error);
         }
       });
     } catch (error) {
@@ -394,7 +387,7 @@ function LauncherHome() {
   };
 
   const handleHomeAppPress = async (app: any, index?: number) => {
-    if (app.packageName) {
+    if (app?.packageName) {
       try {
         // Get wrapper (should be preloaded) and launch immediately
         const wrapper = await getAppLauncherWrapper();
@@ -405,7 +398,7 @@ function LauncherHome() {
         });
 
       } catch (error) {
-        if (__DEV__) console.error('Failed to launch home app:', app.packageName, error);
+        if (__DEV__) console.error('Failed to launch home app:', app?.packageName, error);
       }
     } else {
       // No app assigned - open AppSelector for easy assignment
