@@ -3,13 +3,59 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
 import { Stack, useNavigationContainerRef } from "expo-router";
+import * as SplashScreen from 'expo-splash-screen';
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
+// Keep splash screen visible while we load resources
+SplashScreen.preventAutoHideAsync().catch(error => console.error('Failed to keep splash screen visible:', error));
+
 // Font Size Context
-interface HomeApp {
+export interface HomeApp {
   packageName: string;
   originalName: string;
   nickname?: string;
+}
+
+const emptyHomeApp: HomeApp = { packageName: '', originalName: 'select' };
+
+function parseSavedNumber(value: string | null, fallback: number, min: number, max: number): number {
+  const parsed = value === null ? NaN : Number(value);
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+}
+
+function parseHomeApp(value: unknown): HomeApp | null {
+  if (!value || typeof value !== 'object') return null;
+  const app = value as Record<string, unknown>;
+  if (typeof app.packageName !== 'string' || typeof app.originalName !== 'string') return null;
+  return {
+    packageName: app.packageName,
+    originalName: app.originalName,
+    ...(typeof app.nickname === 'string' ? { nickname: app.nickname } : {}),
+  };
+}
+
+function parseSavedHomeApps(value: string | null, count: number): HomeApp[] {
+  if (!value) return Array.from({ length: count }, () => ({ ...emptyHomeApp }));
+  try {
+    const saved: unknown = JSON.parse(value);
+    if (!Array.isArray(saved)) throw new Error('Expected an array');
+    return Array.from({ length: Math.min(10, Math.max(count, saved.length)) }, (_, index) =>
+      parseHomeApp(saved[index]) ?? { ...emptyHomeApp }
+    );
+  } catch (error) {
+    console.error('Failed to parse saved home apps:', error);
+    return Array.from({ length: count }, () => ({ ...emptyHomeApp }));
+  }
+}
+
+function parseSavedSwipeApp(value: string | null): HomeApp {
+  if (!value) return { ...emptyHomeApp };
+  try {
+    return parseHomeApp(JSON.parse(value)) ?? { ...emptyHomeApp };
+  } catch (error) {
+    console.error('Failed to parse saved swipe app:', error);
+    return { ...emptyHomeApp };
+  }
 }
 
 interface FontSizeContextType {
@@ -46,10 +92,18 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   const [homeApps, setHomeAppsState] = useState<HomeApp[]>([]);
   const [leftSwipeApp, setLeftSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
   const [rightSwipeApp, setRightSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     loadConfig();
   }, []);
+
+  // Hide splash screen once config is loaded
+  useEffect(() => {
+    if (isReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [isReady]);
 
   const loadConfig = async () => {
     try {
@@ -68,91 +122,55 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem('launcher_right_swipe_app')
       ]);
 
-      // Apply all settings in one batch to minimize re-renders
-      const updates: any = {};
-
-      if (savedFontSize) {
-        updates.fontSize = parseInt(savedFontSize, 10);
-      }
-      if (savedNumHomeApps) {
-        updates.numHomeApps = parseInt(savedNumHomeApps, 10);
-      }
-      if (savedHomeApps) {
-        try {
-          updates.homeApps = JSON.parse(savedHomeApps);
-        } catch {
-          console.error('Failed to parse savedHomeApps, using default');
-        }
-      }
-      if (savedLeftSwipeApp) {
-        try {
-          updates.leftSwipeApp = JSON.parse(savedLeftSwipeApp);
-        } catch {
-          console.error('Failed to parse savedLeftSwipeApp, using default');
-        }
-      }
-      if (savedRightSwipeApp) {
-        try {
-          updates.rightSwipeApp = JSON.parse(savedRightSwipeApp);
-        } catch {
-          console.error('Failed to parse savedRightSwipeApp, using default');
-        }
-      }
-
-      // Batch state updates
-      if (updates.fontSize !== undefined) setFontSizeState(updates.fontSize);
-      if (updates.numHomeApps !== undefined) setNumHomeAppsState(updates.numHomeApps);
-      if (updates.homeApps) setHomeAppsState(updates.homeApps);
-      if (updates.leftSwipeApp) setLeftSwipeAppState(updates.leftSwipeApp);
-      if (updates.rightSwipeApp) setRightSwipeAppState(updates.rightSwipeApp);
+      const savedCount = parseSavedNumber(savedNumHomeApps, 0, 0, 10);
+      setFontSizeState(parseSavedNumber(savedFontSize, 18, 12, 36));
+      setNumHomeAppsState(savedCount);
+      setHomeAppsState(parseSavedHomeApps(savedHomeApps, savedCount));
+      setLeftSwipeAppState(parseSavedSwipeApp(savedLeftSwipeApp));
+      setRightSwipeAppState(parseSavedSwipeApp(savedRightSwipeApp));
 
     } catch (error) {
       console.error('Failed to load config:', error);
+    } finally {
+      // Mark app as ready to hide splash screen
+      setIsReady(true);
     }
   };
 
   const setFontSize = async (size: number) => {
+    const safeSize = Number.isInteger(size) ? Math.max(12, Math.min(36, size)) : 18;
     try {
-      await AsyncStorage.setItem('launcher_font_size', size.toString());
-      setFontSizeState(size);
+      await AsyncStorage.setItem('launcher_font_size', safeSize.toString());
+      setFontSizeState(safeSize);
     } catch (error) {
       console.error('Failed to save font size:', error);
     }
   };
 
   const setNumHomeApps = async (num: number) => {
+    const safeNum = Number.isInteger(num) ? Math.max(0, Math.min(10, num)) : 0;
     try {
-      await AsyncStorage.setItem('launcher_num_home_apps', num.toString());
-      setNumHomeAppsState(num);
-
-      // Adjust homeApps array size while preserving existing data
-      const newHomeApps = [...homeApps];
-      if (num > newHomeApps.length) {
-        // Add empty slots for new positions
-        while (newHomeApps.length < num) {
-          newHomeApps.push({ packageName: '', originalName: 'select' });
-        }
-        setHomeAppsState(newHomeApps);
+      await AsyncStorage.setItem('launcher_num_home_apps', safeNum.toString());
+      if (safeNum > homeApps.length) {
+        const newHomeApps = [...homeApps, ...Array.from(
+          { length: safeNum - homeApps.length }, () => ({ ...emptyHomeApp })
+        )];
         await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
+        setHomeAppsState(newHomeApps);
       }
-      // When reducing, don't modify the homeApps array, just change the display count
-      // The display logic will handle showing only the first 'num' items
-      // This preserves data for when user increases the count again
+      setNumHomeAppsState(safeNum);
     } catch (error) {
       console.error('Failed to save num home apps:', error);
     }
   };
 
   const setHomeApp = async (index: number, app: HomeApp | null) => {
+    if (!Number.isInteger(index) || index < 0 || index >= 10) return;
     try {
       const newHomeApps = [...homeApps];
-      if (app) {
-        newHomeApps[index] = app;
-      } else {
-        newHomeApps[index] = { packageName: '', originalName: 'select' };
-      }
-      setHomeAppsState(newHomeApps);
+      newHomeApps[index] = (app && parseHomeApp(app)) || { ...emptyHomeApp };
       await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
+      setHomeAppsState(newHomeApps);
     } catch (error) {
       console.error('Failed to save home app:', error);
     }
@@ -160,8 +178,9 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 
   const setLeftSwipeApp = async (app: HomeApp) => {
     try {
-      setLeftSwipeAppState(app);
-      await AsyncStorage.setItem('launcher_left_swipe_app', JSON.stringify(app));
+      const savedApp = parseHomeApp(app) ?? { ...emptyHomeApp };
+      await AsyncStorage.setItem('launcher_left_swipe_app', JSON.stringify(savedApp));
+      setLeftSwipeAppState(savedApp);
     } catch (error) {
       console.error('Failed to save left swipe app:', error);
     }
@@ -169,8 +188,9 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 
   const setRightSwipeApp = async (app: HomeApp) => {
     try {
-      setRightSwipeAppState(app);
-      await AsyncStorage.setItem('launcher_right_swipe_app', JSON.stringify(app));
+      const savedApp = parseHomeApp(app) ?? { ...emptyHomeApp };
+      await AsyncStorage.setItem('launcher_right_swipe_app', JSON.stringify(savedApp));
+      setRightSwipeAppState(savedApp);
     } catch (error) {
       console.error('Failed to save right swipe app:', error);
     }

@@ -5,22 +5,15 @@ import { Platform } from 'react-native';
 export interface AppInfo {
   name: string;
   packageName: string;
-  icon?: string;
 }
 
-export interface AppLauncherModule {
+interface NativeAppLauncher {
   getInstalledApps(): Promise<AppInfo[]>;
-  getCachedApps(): Promise<AppInfo[]>;
-  refreshInstalledApps(): Promise<AppInfo[]>;
-  updateCache(apps: AppInfo[]): Promise<void>;
-  clearCache(): Promise<void>;
   launchApp(packageName: string): Promise<boolean>;
 }
 
-// Use Expo modules API to get the native module
-const AppLauncher = requireNativeModule('AppLauncher');
-
-// Mock data for development/testing
+const CACHE_KEY = 'launcher_installed_apps';
+const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
 const mockApps: AppInfo[] = [
   { name: 'Settings', packageName: 'com.android.settings' },
   { name: 'Calculator', packageName: 'com.android.calculator2' },
@@ -32,154 +25,88 @@ const mockApps: AppInfo[] = [
   { name: 'Contacts', packageName: 'com.android.contacts' },
 ];
 
-let nativeModule: any = null;
-
-try {
-  nativeModule = AppLauncher;
-} catch (error) {
-  console.warn('AppLauncher native module not available:', error);
-}
-
-// Cache configuration
-const CACHE_KEY = 'launcher_installed_apps';
-
-// In-memory cache for faster access during the session
+let nativeModule: NativeAppLauncher | null = null;
 let memoryCache: AppInfo[] | null = null;
 
-const AppLauncherWrapper: AppLauncherModule = {
-  // Original method - now with caching
-  async getInstalledApps(): Promise<AppInfo[]> {
-    console.log('getInstalledApps called - checking cache first...');
+try {
+  nativeModule = requireNativeModule('AppLauncher') as NativeAppLauncher;
+} catch (error) {
+  if (__DEV__) console.warn('AppLauncher native module unavailable:', error);
+}
 
-    // Try to get from cache first
-    const cachedApps = await this.getCachedApps();
-    if (cachedApps.length > 0) {
-      console.log('Using cached apps:', cachedApps.length);
-      return cachedApps;
-    }
+function normalizeApps(value: unknown): AppInfo[] {
+  if (!Array.isArray(value)) throw new Error('AppLauncher returned an invalid app list');
 
-    // If no cache, refresh from native
-    console.log('No valid cache found, refreshing from native...');
-    return await this.refreshInstalledApps();
-  },
-
-  // Get cached apps without calling native module
-  async getCachedApps(): Promise<AppInfo[]> {
-    try {
-      // Check in-memory cache first (fastest)
-      if (memoryCache && memoryCache.length > 0) {
-        console.log('Using in-memory cache:', memoryCache.length, 'apps');
-        return memoryCache;
-      }
-
-      // Check AsyncStorage cache
-      const cachedAppsStr = await AsyncStorage.getItem(CACHE_KEY);
-      if (cachedAppsStr) {
-        const cachedApps = JSON.parse(cachedAppsStr);
-        if (cachedApps && cachedApps.length > 0) {
-          // Update in-memory cache
-          memoryCache = cachedApps;
-          console.log('Using AsyncStorage cache:', cachedApps.length, 'apps');
-          return cachedApps;
-        }
-      }
-
-      console.log('No cache found');
-      return [];
-    } catch (error) {
-      console.error('Failed to get cached apps:', error);
-
-      // If it's a cache corruption error, clear all caches
-      if (error instanceof Error && error.message.includes('Row too big')) {
-        console.log('Cache corrupted, clearing all caches...');
-        await this.clearCache();
-      }
-
-      return [];
-    }
-  },
-
-  // Refresh apps from native module and update cache
-  async refreshInstalledApps(): Promise<AppInfo[]> {
-    if (Platform.OS !== 'android' || !nativeModule) {
-      console.warn('AppLauncher native module not available, using mock data');
-      const sortedMockApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
-      await this.updateCache(sortedMockApps);
-      return sortedMockApps;
-    }
-
-    try {
-      console.log('Calling native getInstalledApps...');
-      const apps = await nativeModule.getInstalledApps();
-      const sortedApps = apps.sort((a: AppInfo, b: AppInfo) => a.name.localeCompare(b.name));
-
-      // Update cache
-      await this.updateCache(sortedApps);
-
-      console.log('Apps refreshed and cached:', sortedApps.length);
-      return sortedApps;
-    } catch (error) {
-      console.error('Failed to get installed apps from native module:', error);
-      const sortedMockApps = mockApps.sort((a, b) => a.name.localeCompare(b.name));
-      await this.updateCache(sortedMockApps);
-      return sortedMockApps;
-    }
-  },
-
-    // Helper method to update cache
-  async updateCache(apps: AppInfo[]): Promise<void> {
-    try {
-      // Store full apps in memory cache (including icons)
-      memoryCache = apps;
-
-      // Store only essential data in AsyncStorage (exclude icons to reduce size)
-      const lightweightApps = apps.map(app => ({
-        name: app.name,
-        packageName: app.packageName
-        // Exclude icon to prevent "Row too big" error
-      }));
-
-      // Update AsyncStorage cache
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(lightweightApps));
-
-      console.log('Cache updated successfully with', lightweightApps.length, 'apps');
-    } catch (error) {
-      console.error('Failed to update cache:', error);
-    }
-  },
-
-  // Clear cache method
-  async clearCache(): Promise<void> {
-    try {
-      // Clear memory cache
-      memoryCache = null;
-
-      // Clear AsyncStorage cache
-      await AsyncStorage.removeItem(CACHE_KEY);
-
-      console.log('Cache cleared successfully');
-    } catch (error) {
-      console.error('Failed to clear cache:', error);
-    }
-  },
-
-  async launchApp(packageName: string): Promise<boolean> {
-    if (Platform.OS !== 'android' || !nativeModule) {
-      if (__DEV__) console.warn('AppLauncher native module not available, simulating app launch');
-      return Promise.resolve(true);
-    }
-
-    try {
-      const result = await nativeModule.launchApp(packageName);
-      if (result === false) {
-        throw new Error(`Failed to launch app: ${packageName} - No launch intent found`);
-      }
-      return result;
-    } catch (error) {
-      if (__DEV__) console.error('Failed to launch app from native module:', error);
-      throw error;
+  const apps = new Map<string, AppInfo>();
+  for (const item of value) {
+    if (typeof item?.name !== 'string' || typeof item?.packageName !== 'string' || !item.packageName) continue;
+    if (item.packageName !== LAUNCHER_PACKAGE_NAME) {
+      apps.set(item.packageName, { name: item.name, packageName: item.packageName });
     }
   }
+  return [...apps.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function readCache(): Promise<AppInfo[]> {
+  if (memoryCache) return memoryCache;
+
+  let saved: string | null;
+  try {
+    saved = await AsyncStorage.getItem(CACHE_KEY);
+  } catch (error) {
+    console.warn('Could not read the app cache:', error);
+    return [];
+  }
+  if (!saved) return [];
+
+  try {
+    memoryCache = normalizeApps(JSON.parse(saved));
+    return memoryCache;
+  } catch (error) {
+    console.warn('Discarding invalid app cache:', error);
+    await AsyncStorage.removeItem(CACHE_KEY);
+    return [];
+  }
+}
+
+async function writeCache(apps: AppInfo[]): Promise<void> {
+  memoryCache = apps;
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(apps));
+  } catch (error) {
+    console.warn('Could not save the app cache:', error);
+  }
+}
+
+async function refreshInstalledApps(): Promise<AppInfo[]> {
+  if (Platform.OS !== 'android') {
+    const apps = __DEV__ ? normalizeApps(mockApps) : [];
+    await writeCache(apps);
+    return apps;
+  }
+  if (!nativeModule) throw new Error('AppLauncher native module is missing from this Android build');
+
+  const apps = normalizeApps(await nativeModule.getInstalledApps());
+  await writeCache(apps);
+  return apps;
+}
+
+const AppLauncherWrapper = {
+  async getInstalledApps(): Promise<AppInfo[]> {
+    const cachedApps = await readCache();
+    return cachedApps.length ? cachedApps : refreshInstalledApps();
+  },
+
+  refreshInstalledApps,
+
+  async launchApp(packageName: string): Promise<void> {
+    if (Platform.OS !== 'android' || !nativeModule) {
+      throw new Error('Launching installed apps is supported only in the Android build');
+    }
+    if (!await nativeModule.launchApp(packageName)) {
+      throw new Error(`No launch intent found for ${packageName}`);
+    }
+  },
 };
 
 export default AppLauncherWrapper;

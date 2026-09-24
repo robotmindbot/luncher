@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AppState,
   BackHandler,
@@ -12,16 +12,8 @@ import {
   View,
 } from 'react-native';
 import { useFontSize } from '../app/_layout';
-import AppLauncherWrapper, { AppInfo } from '../modules/app-launcher';
+import AppLauncherWrapper, { type AppInfo } from '../modules/app-launcher';
 import SearchView from './SearchView';
-
-// Current launcher package name
-const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
-
-// Filter function to hide launcher from app list
-const filterOutLauncher = (apps: AppInfo[]) => {
-  return apps.filter(app => app.packageName !== LAUNCHER_PACKAGE_NAME);
-};
 
 interface AppSelectorProps {
   visible: boolean;
@@ -33,24 +25,19 @@ interface AppSelectorProps {
 export default function AppSelector({ visible, onClose, onSelectApp, currentApp }: AppSelectorProps) {
   const { fontSize } = useFontSize();
   const [apps, setApps] = useState<AppInfo[]>([]);
-  const [filteredApps, setFilteredApps] = useState<AppInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [nickname, setNickname] = useState('');
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
-  const isMountedRef = useRef(true);
-
-  // Track component mount state
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | undefined>();
+  const filteredApps = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return query ? apps.filter(app => app.name.toLowerCase().includes(query)) : apps;
+  }, [apps, searchQuery]);
 
   useEffect(() => {
     if (visible) {
-      setSearchQuery(''); // Clear search query when modal opens
-      loadApps();
+      setSearchQuery('');
       if (currentApp && currentApp.packageName) {
         setSelectedApp({ name: currentApp.originalName, packageName: currentApp.packageName });
         setNickname(currentApp.nickname || '');
@@ -60,6 +47,24 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       }
     }
   }, [visible, currentApp]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(undefined);
+    AppLauncherWrapper.getInstalledApps().then(installedApps => {
+      if (!cancelled) setApps(installedApps);
+    }).catch(error => {
+      if (cancelled) return;
+      setApps([]);
+      setLoadError('Could not load installed apps. Try again later.');
+      console.error('Failed to load apps:', error);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [visible]);
 
   // Handle Android back button in modal
   useEffect(() => {
@@ -93,66 +98,6 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       return () => subscription?.remove();
     }
   }, [visible, onClose]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredApps(apps);
-    } else {
-      const filtered = apps.filter(app =>
-        app.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredApps(filtered);
-    }
-  }, [searchQuery, apps]);
-
-  const loadApps = async () => {
-    try {
-      // Try cached apps first for immediate display
-      let cachedApps = await AppLauncherWrapper.getCachedApps();
-
-      if (!isMountedRef.current) return; // Prevent state update after unmount
-
-      if (cachedApps.length > 0) {
-        console.log('AppSelector: Using cached apps');
-        const filteredCachedApps = filterOutLauncher(cachedApps);
-        setApps(filteredCachedApps);
-        setFilteredApps(filteredCachedApps);
-
-        // Refresh in background to update cache if needed
-        AppLauncherWrapper.refreshInstalledApps().then((refreshedApps) => {
-          if (!isMountedRef.current) return; // Prevent state update after unmount
-          if (refreshedApps.length > 0) {
-            // Compare content, not just length - apps may have changed even if count is same
-            const cachedPackages = new Set(cachedApps.map(a => a.packageName));
-            const refreshedPackages = new Set(refreshedApps.map(a => a.packageName));
-            const hasChanges = refreshedApps.length !== cachedApps.length ||
-              refreshedApps.some(a => !cachedPackages.has(a.packageName)) ||
-              cachedApps.some(a => !refreshedPackages.has(a.packageName));
-
-            if (hasChanges) {
-              console.log('AppSelector: Background refresh updated apps');
-              const filteredRefreshedApps = filterOutLauncher(refreshedApps);
-              setApps(filteredRefreshedApps);
-              setFilteredApps(filteredRefreshedApps);
-            }
-          }
-        }).catch((error) => {
-          if (!isMountedRef.current) return;
-          console.warn('AppSelector: Background refresh failed:', error);
-        });
-      } else {
-        // No cache, get fresh apps
-        console.log('AppSelector: No cache, loading fresh apps');
-        const realApps = await AppLauncherWrapper.getInstalledApps();
-        if (!isMountedRef.current) return; // Prevent state update after unmount
-        const filteredRealApps = filterOutLauncher(realApps);
-        setApps(filteredRealApps);
-        setFilteredApps(filteredRealApps);
-      }
-    } catch (error) {
-      console.error('Failed to load apps:', error);
-    }
-  };
 
   const handleAppPress = (packageName: string) => {
     const app = filteredApps.find(a => a.packageName === packageName);
@@ -201,7 +146,8 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
             onSearchQueryChange={setSearchQuery}
             filteredApps={filteredApps.map(app => ({ name: app.name, packageName: app.packageName }))}
             onAppPress={handleAppPress}
-            loading={false}
+            loading={loading}
+            error={loadError}
             fontSize={fontSize}
             isOpen={true}
           />
@@ -304,4 +250,3 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
 });
-

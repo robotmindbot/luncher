@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
+    ActivityIndicator,
     FlatList,
     RefreshControl,
     StyleSheet,
@@ -23,6 +24,7 @@ interface SearchViewProps {
   isOpen: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
+  error?: string;
 }
 
 const SearchView = forwardRef<TextInput, SearchViewProps>(({
@@ -34,7 +36,8 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   fontSize,
   isOpen,
   onRefresh,
-  refreshing = false
+  refreshing = false,
+  error,
 }, ref) => {
   const internalRef = useRef<TextInput>(null);
 
@@ -84,13 +87,18 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
         textAlignVertical="center"
       />
 
-      {!loading && (
+      {loading ? <ActivityIndicator color="#fff" /> : (
         <FlatList
           data={filteredApps}
           renderItem={renderAppItem}
           keyExtractor={(item, index) => `${item.packageName}_${index}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyMessage}>
+              {error || (searchQuery.trim() ? 'No matching apps' : 'No apps found')}
+            </Text>
+          }
           refreshControl={
             onRefresh ? (
               <RefreshControl
@@ -126,10 +134,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     borderWidth: 0,
     borderColor: 'transparent',
-    outlineStyle: 'none',
     elevation: 0,
     shadowOpacity: 0,
-  } as any,
+  },
   listContainer: {
     paddingHorizontal: 20,
   },
@@ -140,5 +147,10 @@ const styles = StyleSheet.create({
   appName: {
     color: '#fff',
     fontWeight: '300',
+  },
+  emptyMessage: {
+    color: '#888',
+    paddingHorizontal: 4,
+    textAlign: 'center',
   },
 });
