@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -27,6 +27,8 @@ interface SearchViewProps {
   error?: string;
 }
 
+const keyExtractor = (item: App) => item.packageName;
+
 const SearchView = forwardRef<TextInput, SearchViewProps>(({
   searchQuery,
   onSearchQueryChange,
@@ -54,7 +56,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
     }
   }, [isOpen]);
 
-  const renderAppItem = ({ item }: { item: App }) => (
+  const renderAppItem = useCallback(({ item }: { item: App }) => (
     <TouchableOpacity
       style={styles.appItem}
       onPress={() => onAppPress(item.packageName)}
@@ -62,7 +64,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
     >
       <Text style={[styles.appName, { fontSize }]}>{item.name}</Text>
     </TouchableOpacity>
-  );
+  ), [fontSize, onAppPress]);
 
   return (
     <>
@@ -86,7 +88,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
         <FlatList
           data={filteredApps}
           renderItem={renderAppItem}
-          keyExtractor={(item, index) => `${item.packageName}_${index}`}
+          keyExtractor={keyExtractor}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}

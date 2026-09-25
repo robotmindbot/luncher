@@ -30,10 +30,11 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | undefined>();
+  const searchableApps = useMemo(() => apps.map(app => [app.name.toLowerCase(), app] as const), [apps]);
   const filteredApps = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query ? apps.filter(app => app.name.toLowerCase().includes(query)) : apps;
-  }, [apps, searchQuery]);
+    return query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps;
+  }, [apps, searchableApps, searchQuery]);
 
   useEffect(() => {
     if (visible) {
@@ -144,7 +145,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
           <SearchView
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
-            filteredApps={filteredApps.map(app => ({ name: app.name, packageName: app.packageName }))}
+            filteredApps={filteredApps}
             onAppPress={handleAppPress}
             loading={loading}
             error={loadError}

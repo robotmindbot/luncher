@@ -55,10 +55,11 @@ function LauncherHome() {
       .filter(({ app }) => app != null);
   }, [homeApps, numHomeApps]);
 
+  const searchableApps = useMemo(() => apps.map(app => [app.name.toLowerCase(), app] as const), [apps]);
   const filteredApps = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query ? apps.filter(app => app.name.toLowerCase().includes(query)) : apps;
-  }, [apps, searchQuery]);
+    return query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps;
+  }, [apps, searchableApps, searchQuery]);
 
   const loadApps = useCallback(async (refresh = false) => {
     setLoadError(undefined);
