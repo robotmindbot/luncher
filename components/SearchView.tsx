@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -47,7 +47,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   useImperativeHandle(ref, () => internalRef.current!, []);
 
   // Focus as soon as the drawer opens so the keyboard starts immediately.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen && internalRef.current) {
       internalRef.current.focus();
     } else if (!isOpen && internalRef.current) {
