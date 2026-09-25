@@ -1,7 +1,6 @@
 package expo.modules.applauncher
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -19,13 +18,13 @@ class AppLauncherModule : Module() {
     AsyncFunction("getInstalledApps") {
       val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, String>>()
       val packageManager = context.packageManager
+      val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
 
-      packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-        .mapNotNull { application ->
-          if (packageManager.getLaunchIntentForPackage(application.packageName) == null) return@mapNotNull null
+      packageManager.queryIntentActivities(launcherIntent, 0)
+        .map { activity ->
           mapOf(
-            "name" to packageManager.getApplicationLabel(application).toString(),
-            "packageName" to application.packageName,
+            "name" to activity.loadLabel(packageManager).toString(),
+            "packageName" to activity.activityInfo.packageName,
           )
         }
     }

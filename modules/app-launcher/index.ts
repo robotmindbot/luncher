@@ -14,6 +14,7 @@ interface NativeAppLauncher {
 }
 
 const CACHE_KEY = 'launcher_installed_apps';
+const CACHE_MAX_AGE = 5 * 60 * 1000;
 const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
 const mockApps: AppInfo[] = [
   { name: 'Settings', packageName: 'com.android.settings' },
@@ -28,6 +29,7 @@ const mockApps: AppInfo[] = [
 
 let nativeModule: NativeAppLauncher | null = null;
 let memoryCache: AppInfo[] | null = null;
+let cacheUpdatedAt = 0;
 
 try {
   nativeModule = requireNativeModule('AppLauncher') as NativeAppLauncher;
@@ -61,7 +63,16 @@ async function readCache(): Promise<AppInfo[]> {
   if (!saved) return [];
 
   try {
-    memoryCache = normalizeApps(JSON.parse(saved));
+    const cached: unknown = JSON.parse(saved);
+    if (Array.isArray(cached)) {
+      memoryCache = normalizeApps(cached);
+    } else if (cached && typeof cached === 'object') {
+      const data = cached as { apps?: unknown; updatedAt?: unknown };
+      memoryCache = normalizeApps(data.apps);
+      cacheUpdatedAt = typeof data.updatedAt === 'number' ? data.updatedAt : 0;
+    } else {
+      throw new Error('Expected an app list');
+    }
     return memoryCache;
   } catch (error) {
     console.warn('Discarding invalid app cache:', error);
@@ -72,8 +83,9 @@ async function readCache(): Promise<AppInfo[]> {
 
 async function writeCache(apps: AppInfo[]): Promise<void> {
   memoryCache = apps;
+  cacheUpdatedAt = Date.now();
   try {
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(apps));
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ apps, updatedAt: cacheUpdatedAt }));
   } catch (error) {
     console.warn('Could not save the app cache:', error);
   }
@@ -99,7 +111,8 @@ const AppLauncherWrapper = {
 
   async getInstalledApps(): Promise<AppInfo[]> {
     const cachedApps = await readCache();
-    return cachedApps.length ? cachedApps : refreshInstalledApps();
+    // ponytail: app installs may take up to five minutes to appear; pull-to-refresh bypasses the cache.
+    return Date.now() - cacheUpdatedAt < CACHE_MAX_AGE ? cachedApps : refreshInstalledApps();
   },
 
   refreshInstalledApps,

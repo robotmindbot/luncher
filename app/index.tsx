@@ -133,7 +133,7 @@ function LauncherHome() {
       } else if (nextAppState === 'active' && wasInBackground) {
         wasInBackground = false;
         if (isDrawerOpen) closeDrawer();
-        void loadApps(true);
+        void loadApps();
       }
     };
 
