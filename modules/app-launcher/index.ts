@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule, type EventSubscription } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 export interface AppInfo {
@@ -10,6 +10,7 @@ export interface AppInfo {
 interface NativeAppLauncher {
   getInstalledApps(): Promise<AppInfo[]>;
   launchApp(packageName: string): Promise<boolean>;
+  addListener(eventName: 'onHomeIntent', listener: () => void): EventSubscription;
 }
 
 const CACHE_KEY = 'launcher_installed_apps';
@@ -92,6 +93,10 @@ async function refreshInstalledApps(): Promise<AppInfo[]> {
 }
 
 const AppLauncherWrapper = {
+  addHomeIntentListener(listener: () => void): EventSubscription | undefined {
+    return nativeModule?.addListener('onHomeIntent', listener);
+  },
+
   async getInstalledApps(): Promise<AppInfo[]> {
     const cachedApps = await readCache();
     return cachedApps.length ? cachedApps : refreshInstalledApps();

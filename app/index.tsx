@@ -105,6 +105,11 @@ function LauncherHome() {
     loadApps();
   }, [loadApps]);
 
+  useEffect(() => {
+    const subscription = AppLauncherWrapper.addHomeIntentListener(closeDrawer);
+    return () => subscription?.remove();
+  }, [closeDrawer]);
+
   // Handle Android back button - always stay on home screen
   useEffect(() => {
     const backAction = () => {

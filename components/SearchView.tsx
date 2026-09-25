@@ -44,15 +44,10 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   // Use imperative handle to expose the ref with null safety
   useImperativeHandle(ref, () => internalRef.current!, []);
 
-  // Focus the input when the search view opens - with longer delay for drawer animation
+  // Focus as soon as the drawer opens so the keyboard starts immediately.
   useEffect(() => {
     if (isOpen && internalRef.current) {
-      // Longer delay to ensure the drawer animation completes
-      const timer = setTimeout(() => {
-        internalRef.current?.focus();
-      }, 100);
-
-      return () => clearTimeout(timer);
+      internalRef.current.focus();
     } else if (!isOpen && internalRef.current) {
       // Blur when closing
       internalRef.current.blur();

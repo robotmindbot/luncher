@@ -2,9 +2,10 @@ import { getSentryConfig } from "@/config/sentry";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
-import { Stack, useNavigationContainerRef } from "expo-router";
+import { Stack, useNavigationContainerRef, useRouter } from "expo-router";
 import * as SplashScreen from 'expo-splash-screen';
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import AppLauncherWrapper from '../modules/app-launcher';
 
 // Keep splash screen visible while we load resources
 SplashScreen.preventAutoHideAsync().catch(error => console.error('Failed to keep splash screen visible:', error));
@@ -245,6 +246,12 @@ const navigationIntegration = initializeSentry();
 
 function RootLayoutNav() {
   const ref = useNavigationContainerRef();
+  const router = useRouter();
+
+  useEffect(() => {
+    const subscription = AppLauncherWrapper.addHomeIntentListener(() => router.dismissAll());
+    return () => subscription?.remove();
+  }, [router]);
 
   useEffect(() => {
     if (ref?.current) {

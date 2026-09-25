@@ -8,6 +8,13 @@ import expo.modules.kotlin.modules.ModuleDefinition
 class AppLauncherModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AppLauncher")
+    Events("onHomeIntent")
+
+    OnNewIntent { intent ->
+      if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
+        sendEvent("onHomeIntent")
+      }
+    }
 
     AsyncFunction("getInstalledApps") {
       val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, String>>()
