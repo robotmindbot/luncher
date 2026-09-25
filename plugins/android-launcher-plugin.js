@@ -1,7 +1,7 @@
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest, withMainActivity } = require('@expo/config-plugins');
 
 const withAndroidLauncher = (config) => {
-  return withAndroidManifest(config, (config) => {
+  config = withAndroidManifest(config, (config) => {
     const androidManifest = config.modResults;
     const { manifest } = androidManifest;
 
@@ -131,6 +131,28 @@ const withAndroidLauncher = (config) => {
       });
     }
 
+    return config;
+  });
+
+  return withMainActivity(config, (config) => {
+    const { contents } = config.modResults;
+    const marker = 'override fun onWindowFocusChanged(hasFocus: Boolean)';
+    const handler = `override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      window.decorView.postDelayed({
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.isNavigationBarContrastEnforced = false
+        window.decorView.systemUiVisibility = window.decorView.systemUiVisibility and
+          android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+      }, 500)
+    }
+  }
+
+  `;
+    if (!contents.includes(marker)) {
+      config.modResults.contents = contents.replace('  override fun getMainComponentName()', `  ${handler}override fun getMainComponentName()`);
+    }
     return config;
   });
 };
