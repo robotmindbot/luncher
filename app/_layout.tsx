@@ -109,19 +109,20 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   const loadConfig = async () => {
     try {
       // Batch all AsyncStorage operations for better performance
+      const savedValues = await AsyncStorage.multiGet([
+        'launcher_font_size',
+        'launcher_num_home_apps',
+        'launcher_home_apps',
+        'launcher_left_swipe_app',
+        'launcher_right_swipe_app'
+      ]);
       const [
         savedFontSize,
         savedNumHomeApps,
         savedHomeApps,
         savedLeftSwipeApp,
         savedRightSwipeApp
-      ] = await Promise.all([
-        AsyncStorage.getItem('launcher_font_size'),
-        AsyncStorage.getItem('launcher_num_home_apps'),
-        AsyncStorage.getItem('launcher_home_apps'),
-        AsyncStorage.getItem('launcher_left_swipe_app'),
-        AsyncStorage.getItem('launcher_right_swipe_app')
-      ]);
+      ] = savedValues.map(([, value]) => value);
 
       const savedCount = parseSavedNumber(savedNumHomeApps, 0, 0, 10);
       setFontSizeState(parseSavedNumber(savedFontSize, 18, 12, 36));
