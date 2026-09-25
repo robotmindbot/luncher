@@ -143,9 +143,10 @@ function LauncherHome() {
   }, [isDrawerOpen, closeDrawer, loadApps]);
 
   const launchApp = useCallback(async (packageName: string) => {
-    closeDrawer();
     try {
-      await AppLauncherWrapper.launchApp(packageName);
+      const launch = AppLauncherWrapper.launchApp(packageName);
+      closeDrawer();
+      await launch;
     } catch (error) {
       console.error('Failed to launch app:', packageName, error);
     }

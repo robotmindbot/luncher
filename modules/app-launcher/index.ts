@@ -9,7 +9,7 @@ export interface AppInfo {
 
 interface NativeAppLauncher {
   getInstalledApps(): Promise<AppInfo[]>;
-  launchApp(packageName: string): Promise<boolean>;
+  launchApp(packageName: string): boolean;
   addListener(eventName: 'onHomeIntent', listener: () => void): EventSubscription;
 }
 
@@ -121,7 +121,7 @@ const AppLauncherWrapper = {
     if (Platform.OS !== 'android' || !nativeModule) {
       throw new Error('Launching installed apps is supported only in the Android build');
     }
-    if (!await nativeModule.launchApp(packageName)) {
+    if (!nativeModule.launchApp(packageName)) {
       throw new Error(`No launch intent found for ${packageName}`);
     }
   },

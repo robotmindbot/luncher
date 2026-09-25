@@ -29,10 +29,10 @@ class AppLauncherModule : Module() {
         }
     }
 
-    AsyncFunction("launchApp") { packageName: String ->
-      val context = appContext.reactContext ?: return@AsyncFunction false
+    Function("launchApp") { packageName: String ->
+      val context = appContext.reactContext ?: return@Function false
       val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-        ?: return@AsyncFunction false
+        ?: return@Function false
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       context.startActivity(intent)
       true
