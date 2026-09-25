@@ -92,6 +92,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
           data={filteredApps}
           renderItem={renderAppItem}
           keyExtractor={(item, index) => `${item.packageName}_${index}`}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
