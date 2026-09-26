@@ -23,7 +23,8 @@
         "android.permission.QUERY_ALL_PACKAGES",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_CALENDAR"
       ],
       "package": "baby.waza.luncher"
     },

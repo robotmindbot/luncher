@@ -25,7 +25,6 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function LauncherHome() {
   const router = useRouter();
-  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp, setLeftSwipeApp, setRightSwipeApp } = useFontSize();
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,8 +34,11 @@ function LauncherHome() {
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  const [nextAppointment, setNextAppointment] = useState<{ eventId: number; title: string; begin: number; end: number; allDay: boolean } | null>(null);
   const searchInputRef = useRef<TextInput>(null);
   const isMountedRef = useRef(true);
+  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp, setLeftSwipeApp, setRightSwipeApp, appAliases, showTime, showDate, chineseDate, showNextAppointment } = useFontSize();
 
   // Track component mount state to prevent state updates after unmount
   useEffect(() => {
@@ -55,11 +57,12 @@ function LauncherHome() {
       .filter(({ app }) => app != null);
   }, [homeApps, numHomeApps]);
 
-  const searchableApps = useMemo(() => apps.map(app => [app.name.toLowerCase(), app] as const), [apps]);
+  const searchableApps = useMemo(() => apps.map(app => [[app.name, appAliases[app.packageName]].filter(Boolean).join(' ').toLowerCase(), app] as const), [apps, appAliases]);
   const filteredApps = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps;
-  }, [apps, searchableApps, searchQuery]);
+    return (query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps)
+      .map(app => ({ ...app, alias: appAliases[app.packageName] }));
+  }, [apps, searchableApps, searchQuery, appAliases]);
 
   const loadApps = useCallback(async (refresh = false) => {
     setLoadError(undefined);
@@ -105,6 +108,35 @@ function LauncherHome() {
   useEffect(() => {
     loadApps();
   }, [loadApps]);
+
+  useEffect(() => {
+    if (!showTime && !showDate) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [showTime, showDate]);
+
+  useEffect(() => {
+    if (!showDate || !showNextAppointment) {
+      setNextAppointment(null);
+      return;
+    }
+    let active = true;
+    const refresh = () => {
+      void AppLauncherWrapper.getNextCalendarAppointment().then(value => {
+        if (active) setNextAppointment(value);
+      }).catch(error => console.warn('Could not read calendar appointment:', error));
+    };
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') refresh();
+    });
+    return () => {
+      active = false;
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [showDate, showNextAppointment]);
 
   useEffect(() => {
     const subscription = AppLauncherWrapper.addHomeIntentListener(closeDrawer);
@@ -159,14 +191,9 @@ function LauncherHome() {
   }, [isDrawerOpen, searchQuery, filteredApps, loading, launchApp]);
 
   const openDrawer = () => {
+    translateY.setValue(0);
     setIsDrawerOpen(true);
-
-    Animated.spring(translateY, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
+    searchInputRef.current?.focus();
   };
 
   const toggleDrawer = () => {
@@ -180,6 +207,17 @@ function LauncherHome() {
   const handleLongPress = () => {
     router.push('./config');
   };
+
+  const launchNamedApp = (term: string) => {
+    const app = apps.find(item => item.name.toLowerCase().includes(term));
+    if (app) void launchApp(app.packageName);
+    else openDrawer();
+  };
+
+  const chineseDateParts = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).formatToParts(now);
+  const dateText = chineseDate
+    ? `${chineseDateParts.find(part => part.type === 'month')?.value}月${chineseDateParts.find(part => part.type === 'day')?.value}日`
+    : now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const handleHomeAppPress = (app: HomeApp | null | undefined, index?: number) => {
     if (app?.packageName) {
@@ -198,7 +236,7 @@ function LauncherHome() {
     setAppSelectorVisible(true);
   };
 
-  const handleAppSelect = (app: { packageName: string; originalName: string; nickname?: string }) => {
+  const handleAppSelect = (app: { packageName: string; originalName: string; alias?: string }) => {
     if (selectedHomeAppIndex !== null) {
       setHomeApp(selectedHomeAppIndex, app);
     } else if (selectedSwipeType) {
@@ -218,12 +256,18 @@ function LauncherHome() {
     <TouchableOpacity
       key={index}
       style={styles.homeAppItem}
-      onPress={() => handleHomeAppPress(app, index)}
-      onLongPress={() => handleHomeAppLongPress(index)}
+      onPress={event => {
+        event.stopPropagation();
+        handleHomeAppPress(app, index);
+      }}
+      onLongPress={event => {
+        event.stopPropagation();
+        handleHomeAppLongPress(index);
+      }}
       activeOpacity={0.6}
     >
       <Text style={[styles.homeAppName, { fontSize }]}>
-        {app?.nickname || app?.originalName || 'select'}
+        {app?.alias || app?.originalName || 'select'}
       </Text>
     </TouchableOpacity>
   );
@@ -275,8 +319,21 @@ function LauncherHome() {
               delayLongPress={800}
               activeOpacity={1}
             >
-              {numHomeApps > 0 && (
+              {(numHomeApps > 0 || showTime || showDate) && (
                 <View style={styles.homeAppsContainer}>
+                  {(showTime || showDate) && <View style={styles.dateTimeContainer}>
+                    {showTime && <TouchableOpacity onPress={() => launchNamedApp('clock')}><Text style={[styles.homeAppName, styles.dateTimeText, { fontSize: fontSize + 8 }]}>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })}</Text></TouchableOpacity>}
+                    {showDate && <TouchableOpacity onPress={() => launchNamedApp('calendar')}><Text style={[styles.homeAppName, styles.dateTimeText, { fontSize }]}>{dateText}</Text></TouchableOpacity>}
+                    {showDate && showNextAppointment && <TouchableOpacity
+                      style={styles.appointmentLine}
+                      disabled={!nextAppointment}
+                      onPress={() => nextAppointment && AppLauncherWrapper.openCalendarEvent(nextAppointment)}
+                    >
+                      <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.homeAppName, styles.appointmentText]}>
+                        {nextAppointment ? (nextAppointment.allDay ? nextAppointment.title : `${new Date(nextAppointment.begin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${nextAppointment.title}`) : ' '}
+                      </Text>
+                    </TouchableOpacity>}
+                  </View>}
                   {visibleHomeApps.map(({ app, index }) => renderHomeAppItem(app, index))}
                 </View>
               )}
@@ -306,7 +363,6 @@ function LauncherHome() {
             onAppPress={launchApp}
             loading={loading}
             error={loadError}
-            fontSize={fontSize}
             isOpen={isDrawerOpen}
             onRefresh={handleManualRefresh}
             refreshing={refreshing}
@@ -331,6 +387,7 @@ function LauncherHome() {
               ? rightSwipeApp
               : undefined
           }
+          allowAlias={selectedHomeAppIndex !== null}
         />
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -383,6 +440,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  dateTimeContainer: { marginBottom: 24 },
+  dateTimeText: { marginBottom: 8 },
+  appointmentLine: { height: 20, justifyContent: 'center' },
+  appointmentText: { fontSize: 14, lineHeight: 18 },
   touchArea: {
     flex: 1,
     justifyContent: 'center',

@@ -58,6 +58,7 @@ const withAndroidLauncher = (config) => {
     mainActivity.$['android:launchMode'] = 'singleTask';
     mainActivity.$['android:clearTaskOnLaunch'] = 'true';
     mainActivity.$['android:stateNotNeeded'] = 'true';
+    mainActivity.$['android:excludeFromRecents'] = 'true';
     mainActivity.$['android:exported'] = 'true';
 
     // Check if HOME launcher intent filter exists (different from regular LAUNCHER)

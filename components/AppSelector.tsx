@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   BackHandler,
@@ -18,36 +18,40 @@ import SearchView from './SearchView';
 interface AppSelectorProps {
   visible: boolean;
   onClose: () => void;
-  onSelectApp: (app: { packageName: string; originalName: string; nickname?: string }) => void;
-  currentApp?: { packageName: string; originalName: string; nickname?: string };
+  onSelectApp: (app: { packageName: string; originalName: string; alias?: string }) => void;
+  currentApp?: { packageName: string; originalName: string; alias?: string };
+  allowAlias?: boolean;
 }
 
-export default function AppSelector({ visible, onClose, onSelectApp, currentApp }: AppSelectorProps) {
-  const { fontSize } = useFontSize();
+export default function AppSelector({ visible, onClose, onSelectApp, currentApp, allowAlias = true }: AppSelectorProps) {
+  const { appAliases } = useFontSize();
+  const fontSize = 18;
+  const searchInputRef = useRef<TextInput>(null);
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [nickname, setNickname] = useState('');
+  const [alias, setAlias] = useState('');
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | undefined>();
-  const searchableApps = useMemo(() => apps.map(app => [app.name.toLowerCase(), app] as const), [apps]);
+  const searchableApps = useMemo(() => apps.map(app => [[app.name, appAliases[app.packageName]].filter(Boolean).join(' ').toLowerCase(), app] as const), [apps, appAliases]);
   const filteredApps = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps;
-  }, [apps, searchableApps, searchQuery]);
+    return (query ? searchableApps.filter(([name]) => name.includes(query)).map(([, app]) => app) : apps)
+      .map(app => ({ ...app, alias: appAliases[app.packageName] }));
+  }, [apps, searchableApps, searchQuery, appAliases]);
 
   useEffect(() => {
     if (visible) {
       setSearchQuery('');
       if (currentApp && currentApp.packageName) {
         setSelectedApp({ name: currentApp.originalName, packageName: currentApp.packageName });
-        setNickname(currentApp.nickname || '');
+        setAlias(appAliases[currentApp.packageName] || currentApp.alias || '');
       } else {
         setSelectedApp(null);
-        setNickname('');
+        setAlias('');
       }
     }
-  }, [visible, currentApp]);
+  }, [visible, currentApp, appAliases]);
 
   useEffect(() => {
     if (!visible) return;
@@ -104,7 +108,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
     const app = filteredApps.find(a => a.packageName === packageName);
     if (app) {
       setSelectedApp(app);
-      setNickname(''); // Reset nickname when selecting new app
+      setAlias(appAliases[app.packageName] || (currentApp?.packageName === app.packageName ? currentApp.alias || '' : ''));
     }
   };
 
@@ -113,7 +117,7 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
       onSelectApp({
         packageName: selectedApp.packageName,
         originalName: selectedApp.name,
-        nickname: nickname.trim() || undefined,
+        alias: allowAlias ? alias.trim() : undefined,
       });
     }
     onClose();
@@ -128,7 +132,8 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
     <Modal
       visible={visible}
       transparent={false}
-      animationType="slide"
+      animationType="none"
+      onShow={() => requestAnimationFrame(() => searchInputRef.current?.focus())}
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.container}>
@@ -143,29 +148,29 @@ export default function AppSelector({ visible, onClose, onSelectApp, currentApp 
 
         <View style={styles.searchContainer}>
           <SearchView
+            ref={searchInputRef}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             filteredApps={filteredApps}
             onAppPress={handleAppPress}
             loading={loading}
             error={loadError}
-            fontSize={fontSize}
-            isOpen={true}
+            isOpen={visible}
           />
         </View>
 
         {selectedApp && (
           <View style={styles.selectedSection}>
             <Text style={[styles.selectedLabel, { fontSize }]}>Selected: {selectedApp.name}</Text>
-            <TextInput
-              style={[styles.nicknameInput, { fontSize }]}
-              placeholder="Nickname (optional)"
+            {allowAlias && <TextInput
+              style={[styles.aliasInput, { fontSize }]}
+              placeholder="Alias (optional)"
               placeholderTextColor="#666"
-              value={nickname}
-              onChangeText={setNickname}
+              value={alias}
+              onChangeText={setAlias}
               autoCorrect={false}
               autoCapitalize="words"
-            />
+            />}
             <View style={styles.buttonRow}>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={[styles.buttonText, { fontSize }]}>Save</Text>
@@ -218,7 +223,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontWeight: '300',
   },
-  nicknameInput: {
+  aliasInput: {
     height: 48,
     marginBottom: 20,
     paddingHorizontal: 16,

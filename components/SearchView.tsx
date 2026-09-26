@@ -8,10 +8,12 @@ import {
     TextInput,
     TouchableOpacity
 } from 'react-native';
+import AppLauncherWrapper from '../modules/app-launcher';
 
 interface App {
   name: string;
   packageName: string;
+  alias?: string;
 }
 
 interface SearchViewProps {
@@ -20,7 +22,6 @@ interface SearchViewProps {
   filteredApps: App[];
   onAppPress: (packageName: string) => void;
   loading: boolean;
-  fontSize: number;
   isOpen: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -35,25 +36,29 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   filteredApps,
   onAppPress,
   loading,
-  fontSize,
   isOpen,
   onRefresh,
   refreshing = false,
   error,
 }, ref) => {
+  const fontSize = 18;
   const internalRef = useRef<TextInput>(null);
+  const focusFrame = useRef<number | null>(null);
 
   // Use imperative handle to expose the ref with null safety
   useImperativeHandle(ref, () => internalRef.current!, []);
 
   // Focus as soon as the drawer opens so the keyboard starts immediately.
   useLayoutEffect(() => {
+    if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
     if (isOpen && internalRef.current) {
-      internalRef.current.focus();
+      focusFrame.current = requestAnimationFrame(() => internalRef.current?.focus());
     } else if (!isOpen && internalRef.current) {
-      // Blur when closing
       internalRef.current.blur();
     }
+    return () => {
+      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
+    };
   }, [isOpen]);
 
   const renderAppItem = useCallback(({ item }: { item: App }) => (
@@ -62,7 +67,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
       onPress={() => onAppPress(item.packageName)}
       activeOpacity={0.6}
     >
-      <Text style={[styles.appName, { fontSize }]}>{item.name}</Text>
+      <Text style={[styles.appName, { fontSize }]}>{item.name}{item.alias ? ` (${item.alias})` : ''}</Text>
     </TouchableOpacity>
   ), [fontSize, onAppPress]);
 
@@ -70,7 +75,8 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
     <>
       <TextInput
         ref={internalRef}
-        style={[styles.searchInput, { fontSize, lineHeight: fontSize * 1.4 }]}
+        onFocus={() => AppLauncherWrapper.finishKeyboardShowImmediately()}
+        style={[styles.searchInput, { fontSize, lineHeight: fontSize * 1.4, height: Math.max(56, fontSize * 1.4 + 24) }]}
         value={searchQuery}
         onChangeText={onSearchQueryChange}
         autoCorrect={false}
@@ -124,7 +130,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 0,
     color: '#fff',
     backgroundColor: 'transparent',
     borderRadius: 0,

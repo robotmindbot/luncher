@@ -14,7 +14,7 @@ SplashScreen.preventAutoHideAsync().catch(error => console.error('Failed to keep
 export interface HomeApp {
   packageName: string;
   originalName: string;
-  nickname?: string;
+  alias?: string;
 }
 
 const emptyHomeApp: HomeApp = { packageName: '', originalName: 'select' };
@@ -31,7 +31,8 @@ function parseHomeApp(value: unknown): HomeApp | null {
   return {
     packageName: app.packageName,
     originalName: app.originalName,
-    ...(typeof app.nickname === 'string' ? { nickname: app.nickname } : {}),
+    ...(typeof app.alias === 'string' ? { alias: app.alias } :
+      typeof app.nickname === 'string' ? { alias: app.nickname } : {}),
   };
 }
 
@@ -59,17 +60,45 @@ function parseSavedSwipeApp(value: string | null): HomeApp {
   }
 }
 
+function parseAppAliases(value: string | null): Record<string, string> {
+  if (!value) return {};
+  try {
+    const saved: unknown = JSON.parse(value);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+    return Object.fromEntries(Object.entries(saved).filter(([packageName, alias]) =>
+      packageName.length > 0 && typeof alias === 'string' && alias.trim().length > 0
+    ).map(([packageName, alias]) => [packageName, (alias as string).trim()]));
+  } catch (error) {
+    console.error('Failed to parse app aliases:', error);
+    return {};
+  }
+}
+
+function applyAppAliases(app: HomeApp, aliases: Record<string, string>): HomeApp {
+  const alias = aliases[app.packageName];
+  return { ...app, ...(alias ? { alias } : { alias: undefined }) };
+}
+
 interface FontSizeContextType {
   fontSize: number;
   setFontSize: (size: number) => void;
   numHomeApps: number;
   setNumHomeApps: (num: number) => void;
   homeApps: HomeApp[];
+  appAliases: Record<string, string>;
   setHomeApp: (index: number, app: HomeApp | null) => void;
   leftSwipeApp: HomeApp;
   rightSwipeApp: HomeApp;
   setLeftSwipeApp: (app: HomeApp) => void;
   setRightSwipeApp: (app: HomeApp) => void;
+  showTime: boolean;
+  setShowTime: (show: boolean) => void;
+  showDate: boolean;
+  setShowDate: (show: boolean) => void;
+  chineseDate: boolean;
+  setChineseDate: (chinese: boolean) => void;
+  showNextAppointment: boolean;
+  setShowNextAppointment: (show: boolean) => void;
 }
 
 const FontSizeContext = createContext<FontSizeContextType>({
@@ -78,11 +107,20 @@ const FontSizeContext = createContext<FontSizeContextType>({
   numHomeApps: 0,
   setNumHomeApps: () => {},
   homeApps: [],
+  appAliases: {},
   setHomeApp: () => {},
   leftSwipeApp: { packageName: '', originalName: 'select' },
   rightSwipeApp: { packageName: '', originalName: 'select' },
   setLeftSwipeApp: () => {},
   setRightSwipeApp: () => {},
+  showTime: false,
+  setShowTime: () => {},
+  showDate: false,
+  setShowDate: () => {},
+  chineseDate: false,
+  setChineseDate: () => {},
+  showNextAppointment: false,
+  setShowNextAppointment: () => {},
 });
 
 export const useFontSize = () => useContext(FontSizeContext);
@@ -91,8 +129,13 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   const [fontSize, setFontSizeState] = useState(18);
   const [numHomeApps, setNumHomeAppsState] = useState(0);
   const [homeApps, setHomeAppsState] = useState<HomeApp[]>([]);
+  const [appAliases, setAppAliasesState] = useState<Record<string, string>>({});
   const [leftSwipeApp, setLeftSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
   const [rightSwipeApp, setRightSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
+  const [showTime, setShowTimeState] = useState(false);
+  const [showDate, setShowDateState] = useState(false);
+  const [chineseDate, setChineseDateState] = useState(false);
+  const [showNextAppointment, setShowNextAppointmentState] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -114,22 +157,49 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         'launcher_num_home_apps',
         'launcher_home_apps',
         'launcher_left_swipe_app',
-        'launcher_right_swipe_app'
+        'launcher_right_swipe_app',
+        'launcher_show_time',
+        'launcher_show_date',
+        'launcher_chinese_date',
+        'launcher_show_next_appointment',
+        'launcher_app_nicknames',
+        'launcher_app_aliases',
       ]);
       const [
         savedFontSize,
         savedNumHomeApps,
         savedHomeApps,
         savedLeftSwipeApp,
-        savedRightSwipeApp
+        savedRightSwipeApp,
+        savedShowTime,
+        savedShowDate,
+        savedChineseDate,
+        savedNextAppointment,
+        savedAppNicknames,
+        savedAppAliases,
       ] = savedValues.map(([, value]) => value);
 
       const savedCount = parseSavedNumber(savedNumHomeApps, 0, 0, 10);
       setFontSizeState(parseSavedNumber(savedFontSize, 18, 12, 36));
       setNumHomeAppsState(savedCount);
-      setHomeAppsState(parseSavedHomeApps(savedHomeApps, savedCount));
-      setLeftSwipeAppState(parseSavedSwipeApp(savedLeftSwipeApp));
-      setRightSwipeAppState(parseSavedSwipeApp(savedRightSwipeApp));
+      const loadedHomeApps = parseSavedHomeApps(savedHomeApps, savedCount);
+      const loadedLeftSwipeApp = parseSavedSwipeApp(savedLeftSwipeApp);
+      const loadedRightSwipeApp = parseSavedSwipeApp(savedRightSwipeApp);
+      const aliases = { ...parseAppAliases(savedAppNicknames), ...parseAppAliases(savedAppAliases) };
+      for (const app of [...loadedHomeApps, loadedLeftSwipeApp, loadedRightSwipeApp]) {
+        if (!aliases[app.packageName] && app.alias?.trim()) aliases[app.packageName] = app.alias.trim();
+      }
+      setAppAliasesState(aliases);
+      setHomeAppsState(loadedHomeApps.map(app => applyAppAliases(app, aliases)));
+      setLeftSwipeAppState(applyAppAliases(loadedLeftSwipeApp, aliases));
+      setRightSwipeAppState(applyAppAliases(loadedRightSwipeApp, aliases));
+      if (Object.keys(aliases).length) {
+        await AsyncStorage.setItem('launcher_app_aliases', JSON.stringify(aliases));
+      }
+      setShowTimeState(savedShowTime === 'true');
+      setShowDateState(savedShowDate === 'true');
+      setChineseDateState(savedChineseDate === 'true');
+      setShowNextAppointmentState(savedNextAppointment === 'true');
 
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -153,10 +223,13 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
     const safeNum = Number.isInteger(num) ? Math.max(0, Math.min(10, num)) : 0;
     try {
       await AsyncStorage.setItem('launcher_num_home_apps', safeNum.toString());
-      if (safeNum > homeApps.length) {
-        const newHomeApps = [...homeApps, ...Array.from(
-          { length: safeNum - homeApps.length }, () => ({ ...emptyHomeApp })
-        )];
+      if (safeNum > numHomeApps) {
+        const newHomeApps = [...homeApps];
+        newHomeApps.splice(
+          Math.max(0, numHomeApps - 1),
+          0,
+          ...Array.from({ length: safeNum - numHomeApps }, () => ({ ...emptyHomeApp }))
+        );
         await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
         setHomeAppsState(newHomeApps);
       }
@@ -169,10 +242,27 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   const setHomeApp = async (index: number, app: HomeApp | null) => {
     if (!Number.isInteger(index) || index < 0 || index >= 10) return;
     try {
-      const newHomeApps = [...homeApps];
-      newHomeApps[index] = (app && parseHomeApp(app)) || { ...emptyHomeApp };
-      await AsyncStorage.setItem('launcher_home_apps', JSON.stringify(newHomeApps));
+      const newAliases = { ...appAliases };
+      const parsedApp = app && parseHomeApp(app);
+      if (parsedApp?.packageName && typeof app?.alias === 'string') {
+        const alias = app.alias.trim();
+        if (alias) newAliases[parsedApp.packageName] = alias;
+        else delete newAliases[parsedApp.packageName];
+      }
+      const newHomeApps = homeApps.map(saved => applyAppAliases(saved, newAliases));
+      newHomeApps[index] = parsedApp ? applyAppAliases(parsedApp, newAliases) : { ...emptyHomeApp };
+      const newLeftSwipeApp = applyAppAliases(leftSwipeApp, newAliases);
+      const newRightSwipeApp = applyAppAliases(rightSwipeApp, newAliases);
+      await AsyncStorage.multiSet([
+        ['launcher_home_apps', JSON.stringify(newHomeApps)],
+        ['launcher_app_aliases', JSON.stringify(newAliases)],
+        ['launcher_left_swipe_app', JSON.stringify(newLeftSwipeApp)],
+        ['launcher_right_swipe_app', JSON.stringify(newRightSwipeApp)],
+      ]);
       setHomeAppsState(newHomeApps);
+      setAppAliasesState(newAliases);
+      setLeftSwipeAppState(newLeftSwipeApp);
+      setRightSwipeAppState(newRightSwipeApp);
     } catch (error) {
       console.error('Failed to save home app:', error);
     }
@@ -180,7 +270,7 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 
   const setLeftSwipeApp = async (app: HomeApp) => {
     try {
-      const savedApp = parseHomeApp(app) ?? { ...emptyHomeApp };
+      const savedApp = applyAppAliases(parseHomeApp(app) ?? { ...emptyHomeApp }, appAliases);
       await AsyncStorage.setItem('launcher_left_swipe_app', JSON.stringify(savedApp));
       setLeftSwipeAppState(savedApp);
     } catch (error) {
@@ -190,11 +280,20 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
 
   const setRightSwipeApp = async (app: HomeApp) => {
     try {
-      const savedApp = parseHomeApp(app) ?? { ...emptyHomeApp };
+      const savedApp = applyAppAliases(parseHomeApp(app) ?? { ...emptyHomeApp }, appAliases);
       await AsyncStorage.setItem('launcher_right_swipe_app', JSON.stringify(savedApp));
       setRightSwipeAppState(savedApp);
     } catch (error) {
       console.error('Failed to save right swipe app:', error);
+    }
+  };
+
+  const saveDisplayOption = async (key: string, value: boolean, update: (value: boolean) => void) => {
+    try {
+      await AsyncStorage.setItem(key, String(value));
+      update(value);
+    } catch (error) {
+      console.error('Failed to save home display option:', error);
     }
   };
 
@@ -205,11 +304,20 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       numHomeApps,
       setNumHomeApps,
       homeApps,
+      appAliases,
       setHomeApp,
       leftSwipeApp,
       rightSwipeApp,
       setLeftSwipeApp,
       setRightSwipeApp,
+      showTime,
+      setShowTime: (value) => saveDisplayOption('launcher_show_time', value, setShowTimeState),
+      showDate,
+      setShowDate: (value) => saveDisplayOption('launcher_show_date', value, setShowDateState),
+      chineseDate,
+      setChineseDate: (value) => saveDisplayOption('launcher_chinese_date', value, setChineseDateState),
+      showNextAppointment,
+      setShowNextAppointment: (value) => saveDisplayOption('launcher_show_next_appointment', value, setShowNextAppointmentState),
     }}>
       {children}
     </FontSizeContext.Provider>

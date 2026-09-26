@@ -6,12 +6,14 @@ import {
     SafeAreaView,
     StatusBar,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
 import AppSelector from '../components/AppSelector';
 import NumberInput from '../components/NumberInput';
+import AppLauncherWrapper from '../modules/app-launcher';
 import { useFontSize } from './_layout';
 
 const FONT_SIZE_MIN = 12;
@@ -21,18 +23,27 @@ const FONT_SIZE_STEP = 2;
 export default function ConfigScreen() {
   const router = useRouter();
   const {
-    fontSize,
+    fontSize: homeFontSize,
     setFontSize,
     numHomeApps,
     setNumHomeApps,
     leftSwipeApp,
     rightSwipeApp,
     setLeftSwipeApp,
-    setRightSwipeApp
+    setRightSwipeApp,
+    showTime,
+    setShowTime,
+    showDate,
+    setShowDate,
+    chineseDate,
+    setChineseDate,
+    showNextAppointment,
+    setShowNextAppointment,
   } = useFontSize();
 
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
+  const fontSize = 18;
 
   // Handle Android back button - go back to home
   useEffect(() => {
@@ -64,14 +75,14 @@ export default function ConfigScreen() {
   }, [router]);
 
   const handleFontSizeIncrement = () => {
-    if (fontSize < FONT_SIZE_MAX) {
-      setFontSize(fontSize + FONT_SIZE_STEP);
+    if (homeFontSize < FONT_SIZE_MAX) {
+      setFontSize(homeFontSize + FONT_SIZE_STEP);
     }
   };
 
   const handleFontSizeDecrement = () => {
-    if (fontSize > FONT_SIZE_MIN) {
-      setFontSize(fontSize - FONT_SIZE_STEP);
+    if (homeFontSize > FONT_SIZE_MIN) {
+      setFontSize(homeFontSize - FONT_SIZE_STEP);
     }
   };
 
@@ -92,7 +103,7 @@ export default function ConfigScreen() {
     setAppSelectorVisible(true);
   };
 
-  const handleSwipeAppSelect = (app: { packageName: string; originalName: string; nickname?: string }) => {
+  const handleSwipeAppSelect = (app: { packageName: string; originalName: string; alias?: string }) => {
     if (selectedSwipeType === 'left') {
       setLeftSwipeApp(app);
     } else if (selectedSwipeType === 'right') {
@@ -100,6 +111,11 @@ export default function ConfigScreen() {
     }
     setAppSelectorVisible(false);
     setSelectedSwipeType(null);
+  };
+
+  const toggleNextAppointment = async (enabled: boolean) => {
+    if (enabled && !(await AppLauncherWrapper.requestCalendarPermission())) return;
+    setShowNextAppointment(enabled);
   };
 
   return (
@@ -114,13 +130,31 @@ export default function ConfigScreen() {
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2 }]}>Font Size</Text>
 
         <NumberInput
-          value={fontSize}
+          value={homeFontSize}
           onIncrement={handleFontSizeIncrement}
           onDecrement={handleFontSizeDecrement}
           min={FONT_SIZE_MIN}
           max={FONT_SIZE_MAX}
           fontSize={fontSize}
         />
+
+        <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Home Screen</Text>
+        <View style={styles.displayOption}>
+          <Text style={[styles.swipeLabel, { fontSize }]}>Show time</Text>
+          <Switch value={showTime} onValueChange={setShowTime} {...switchColors(showTime)} />
+        </View>
+        <View style={styles.displayOption}>
+          <Text style={[styles.swipeLabel, { fontSize }]}>Show date</Text>
+          <Switch value={showDate} onValueChange={setShowDate} {...switchColors(showDate)} />
+        </View>
+        {showDate && <View style={styles.displayOption}>
+          <Text style={[styles.swipeLabel, { fontSize }]}>Chinese date format (12月31日)</Text>
+          <Switch value={chineseDate} onValueChange={setChineseDate} {...switchColors(chineseDate)} />
+        </View>}
+        {showDate && <View style={styles.displayOption}>
+          <Text style={[styles.swipeLabel, { fontSize }]}>Show next calendar appointment</Text>
+          <Switch value={showNextAppointment} onValueChange={toggleNextAppointment} {...switchColors(showNextAppointment)} />
+        </View>}
 
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Home Apps</Text>
 
@@ -143,7 +177,7 @@ export default function ConfigScreen() {
           >
             <Text style={[styles.swipeLabel, { fontSize }]}>Swipe Left</Text>
             <Text style={[styles.swipeAppName, { fontSize }]}>
-              {leftSwipeApp.nickname || leftSwipeApp.originalName}
+              {leftSwipeApp.alias || leftSwipeApp.originalName}
             </Text>
           </TouchableOpacity>
 
@@ -154,7 +188,7 @@ export default function ConfigScreen() {
           >
             <Text style={[styles.swipeLabel, { fontSize }]}>Swipe Right</Text>
             <Text style={[styles.swipeAppName, { fontSize }]}>
-              {rightSwipeApp.nickname || rightSwipeApp.originalName}
+              {rightSwipeApp.alias || rightSwipeApp.originalName}
             </Text>
           </TouchableOpacity>
         </View>
@@ -172,6 +206,7 @@ export default function ConfigScreen() {
           selectedSwipeType === 'left' ? leftSwipeApp :
           selectedSwipeType === 'right' ? rightSwipeApp : undefined
         }
+        allowAlias={false}
       />
     </SafeAreaView>
   );
@@ -210,6 +245,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 10,
   },
+  displayOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   swipeOption: {
     flex: 1,
     paddingVertical: 20,
@@ -228,3 +264,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+function switchColors(value: boolean) {
+  return { trackColor: { false: '#444', true: '#fff' }, thumbColor: value ? '#000' : '#fff', ios_backgroundColor: '#444' };
+}

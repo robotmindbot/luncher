@@ -17,13 +17,13 @@ Requirements: Node.js, Android SDK/Gradle, and an Android device or emulator aut
 
 ```sh
 npm install
-scripts/rebuild_and_redeploy.sh debug
+scripts/rebuild_and_redeploy.sh
 ```
 
-Pass `release` instead of `debug` to build and install the release variant:
+The script builds and installs the self-contained release variant by default. Pass `debug` only when a Metro development server is running:
 
 ```sh
-scripts/rebuild_and_redeploy.sh release
+scripts/rebuild_and_redeploy.sh debug
 ```
 
 The script regenerates the ignored `android/` project, builds the selected variant, then installs it on the connected device. Set Luncher as the default home app in Android's **Settings → Apps → Default apps → Home app**.

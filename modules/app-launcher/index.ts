@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requireNativeModule, type EventSubscription } from 'expo-modules-core';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 export interface AppInfo {
   name: string;
@@ -10,6 +10,9 @@ export interface AppInfo {
 interface NativeAppLauncher {
   getInstalledApps(): Promise<AppInfo[]>;
   launchApp(packageName: string): boolean;
+  finishKeyboardShowImmediately(): boolean;
+  getNextCalendarAppointment(): Promise<{ eventId: number; title: string; begin: number; end: number; allDay: boolean } | null>;
+  openCalendarEvent(eventId: number, begin: number, end: number): boolean;
   addListener(eventName: 'onHomeIntent', listener: () => void): EventSubscription;
 }
 
@@ -105,6 +108,31 @@ async function refreshInstalledApps(): Promise<AppInfo[]> {
 }
 
 const AppLauncherWrapper = {
+  finishKeyboardShowImmediately(): void {
+    if (Platform.OS === 'android') nativeModule?.finishKeyboardShowImmediately();
+  },
+
+  async requestCalendarPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android' || !nativeModule) return false;
+    const permission = PermissionsAndroid.PERMISSIONS.READ_CALENDAR;
+    if (await PermissionsAndroid.check(permission)) return true;
+    return (await PermissionsAndroid.request(permission, {
+      title: 'Calendar access',
+      message: "Luncher needs calendar access to show today's next appointment on the home screen.",
+      buttonPositive: 'Allow',
+      buttonNegative: 'Cancel',
+    })) === PermissionsAndroid.RESULTS.GRANTED;
+  },
+
+  async getNextCalendarAppointment() {
+    if (Platform.OS !== 'android' || !nativeModule) return null;
+    return nativeModule.getNextCalendarAppointment();
+  },
+
+  openCalendarEvent(event: { eventId: number; begin: number; end: number }): boolean {
+    return Platform.OS === 'android' && !!nativeModule?.openCalendarEvent(event.eventId, event.begin, event.end);
+  },
+
   addHomeIntentListener(listener: () => void): EventSubscription | undefined {
     return nativeModule?.addListener('onHomeIntent', listener);
   },
