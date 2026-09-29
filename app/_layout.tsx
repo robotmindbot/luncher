@@ -1,8 +1,5 @@
-import { getSentryConfig } from "@/config/sentry";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Sentry from "@sentry/react-native";
-import { isRunningInExpoGo } from "expo";
-import { Stack, useNavigationContainerRef, useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from 'expo-splash-screen';
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import AppLauncherWrapper from '../modules/app-launcher';
@@ -388,49 +385,13 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Get Sentry configuration
-const sentryConfig = getSentryConfig();
-
-// Initialize Sentry conditionally and lazily
-const initializeSentry = () => {
-  // Only initialize Sentry if not in development or if explicitly enabled
-  if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_SENTRY === 'true') {
-    // Construct a new integration instance for navigation tracking
-    const navigationIntegration = Sentry.reactNavigationIntegration({
-      enableTimeToInitialDisplay: !isRunningInExpoGo(),
-    });
-
-    Sentry.init({
-      dsn: sentryConfig.dsn,
-      debug: sentryConfig.debug,
-      tracesSampleRate: sentryConfig.tracesSampleRate,
-      integrations: [navigationIntegration],
-      enableNativeFramesTracking: sentryConfig.enableNativeFramesTracking && !isRunningInExpoGo(),
-      beforeSend: (event) => event,
-    });
-
-    return navigationIntegration;
-  }
-  return null;
-};
-
-// Lazy initialize Sentry
-const navigationIntegration = initializeSentry();
-
 function RootLayoutNav() {
-  const ref = useNavigationContainerRef();
   const router = useRouter();
 
   useEffect(() => {
     const subscription = AppLauncherWrapper.addHomeIntentListener(() => router.dismissAll());
     return () => subscription?.remove();
   }, [router]);
-
-  useEffect(() => {
-    if (ref?.current) {
-      navigationIntegration?.registerNavigationContainer(ref);
-    }
-  }, [ref]);
 
   return (
     <FontSizeProvider>
@@ -442,4 +403,4 @@ function RootLayoutNav() {
   );
 }
 
-export default Sentry.wrap(RootLayoutNav);
+export default RootLayoutNav;

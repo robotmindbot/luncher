@@ -88,10 +88,7 @@ const withAndroidLauncher = (config) => {
       manifest['uses-permission'] = [];
     }
 
-    const requiredPermissions = [
-      'android.permission.QUERY_ALL_PACKAGES',
-      'android.permission.RECEIVE_BOOT_COMPLETED'
-    ];
+    const requiredPermissions = ['android.permission.QUERY_ALL_PACKAGES'];
 
     requiredPermissions.forEach(permission => {
       const exists = manifest['uses-permission'].some(perm =>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🐛 Waza Launcher Debug Script"
+echo "🐛 robotmind Launcher Debug Script"
 echo "=============================="
 echo ""
 
@@ -35,10 +35,10 @@ show_menu() {
 
 # Function to monitor live logs
 monitor_live() {
-    echo "🔄 Monitoring live logs for Waza launcher..."
+    echo "🔄 Monitoring live logs for robotmind launcher..."
     echo "Press Ctrl+C to stop"
     echo "=========================================="
-    adb logcat | grep -E "(com.anonymous.waza|ReactNativeJS|System.err|AndroidRuntime|FATAL|ERROR)"
+    adb logcat | grep -E "(baby.robotmind.luncher|ReactNativeJS|System.err|AndroidRuntime|FATAL|ERROR)"
 }
 
 # Function to show crash logs
@@ -62,10 +62,10 @@ search_error() {
 
 # Function to monitor memory
 monitor_memory() {
-    echo "📊 Memory usage for Waza launcher:"
+    echo "📊 Memory usage for robotmind launcher:"
     echo "=================================="
     while true; do
-        memory=$(adb shell dumpsys meminfo com.anonymous.waza | grep "TOTAL" | head -1)
+        memory=$(adb shell dumpsys meminfo baby.robotmind.luncher | grep "TOTAL" | head -1)
         if [[ -n "$memory" ]]; then
             echo "$(date): $memory"
         else
@@ -86,10 +86,10 @@ clear_logs() {
 # Function to save logs
 save_logs() {
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    filename="waza_logs_$timestamp.txt"
+    filename="robotmind_logs_$timestamp.txt"
     echo "📋 Saving logs to $filename..."
 
-    echo "=== WAZA LAUNCHER DEBUG LOGS ===" > "$filename"
+    echo "=== robotmind LAUNCHER DEBUG LOGS ===" > "$filename"
     echo "Generated: $(date)" >> "$filename"
     echo "=================================" >> "$filename"
     echo "" >> "$filename"
@@ -102,8 +102,8 @@ save_logs() {
     adb logcat -d | grep -E "ReactNativeJS" | tail -50 >> "$filename"
     echo "" >> "$filename"
 
-    echo "=== WAZA APP LOGS ===" >> "$filename"
-    adb logcat -d | grep -E "com.anonymous.waza" | tail -100 >> "$filename"
+    echo "=== robotmind APP LOGS ===" >> "$filename"
+    adb logcat -d | grep -E "baby.robotmind.luncher" | tail -100 >> "$filename"
 
     echo "✅ Logs saved to $filename"
 }

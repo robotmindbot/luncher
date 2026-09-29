@@ -1,39 +1,25 @@
-# Waza
+# Luncher
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Android home screen that lists installed apps, searches app names and aliases, and can show the next calendar event.
 
-## Get started
+## Build from source
 
-1. Install dependencies
+Requirements: Node.js 20, Java 17, and Android SDK platform 35.
 
-   ```bash
-   npm install
-   ```
+```sh
+npm ci
+npx expo prebuild --platform android --clean --no-install
+sed -i '/signingConfig /d' android/app/build.gradle
+cd android
+./gradlew --no-daemon assembleRelease
+```
 
-2. Start the app
+The unsigned APK is written to `android/app/build/outputs/apk/release/app-release-unsigned.apk`. The generated Android project is ignored by Git; Expo prebuild recreates it from the checked-in app config and plugin. The clean prebuild replaces any local `android/` directory.
 
-   ```bash
-   npx expo start
-   ```
+## F-Droid status
 
-In the output, you'll find options to open the app in a
+The app uses React Native and Expo. F-Droid builds need the Node and JavaScript package sources as well as the Gradle dependencies; a successful local build alone does not provide an F-Droid build recipe. The build recipe must install those dependencies from reviewed, redistributable sources and build without fetching undeclared binaries.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+App discovery uses `QUERY_ALL_PACKAGES` because a launcher needs to list the apps installed on the device. Calendar access is optional and requested only when enabling the next appointment display. Crash reporting and analytics are not included.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Before submitting to the main F-Droid repository, declare a FLOSS license for the source and licenses for the bundled artwork, then add and validate the repository's F-Droid metadata/build recipe.

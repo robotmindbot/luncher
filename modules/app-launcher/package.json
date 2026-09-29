@@ -7,7 +7,7 @@
     "build": "expo-module build"
   },
   "keywords": ["expo", "module", "android", "launcher"],
-  "author": "waza",
+  "author": "robotmind",
   "license": "MIT",
   "peerDependencies": {
     "expo": "*"

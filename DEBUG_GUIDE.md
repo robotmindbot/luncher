@@ -1,6 +1,6 @@
-# 🐛 Waza Launcher Crash Debugging Guide
+# 🐛 robotmind Launcher Crash Debugging Guide
 
-This guide will help you diagnose and fix crashes in the Waza Android launcher.
+This guide will help you diagnose and fix crashes in the robotmind Android launcher.
 
 ## 🚀 Quick Start Debugging
 
@@ -24,7 +24,7 @@ If you prefer manual debugging:
 
 ```bash
 # View live logs
-adb logcat | grep -E "(com.anonymous.waza|ReactNativeJS|FATAL|ERROR)"
+adb logcat | grep -E "(baby.robotmind.luncher|ReactNativeJS|FATAL|ERROR)"
 
 # View recent crashes only
 adb logcat -d | grep -E "(FATAL|AndroidRuntime)" | tail -20
@@ -120,10 +120,10 @@ Native crash: signal 11 (SIGSEGV)
 **Solution:**
 ```bash
 # Check if app has QUERY_ALL_PACKAGES permission
-adb shell dumpsys package com.anonymous.waza | grep -A5 "declared permissions"
+adb shell dumpsys package baby.robotmind.luncher | grep -A5 "declared permissions"
 ```
 
-**Fix:** Manually enable in Settings → Apps → Waza → Permissions
+**Fix:** Manually enable in Settings → Apps → robotmind → Permissions
 
 ### **2. Native Module Issues** 📱
 **Symptoms:** Crashes when trying to list apps, "module not found" errors
@@ -187,8 +187,8 @@ adb shell setprop log.tag.ReactNativeJS VERBOSE
 ### **2. Check App Package Info**
 ```bash
 # Verify app is installed correctly
-adb shell pm list packages | grep waza
-adb shell dumpsys package com.anonymous.waza
+adb shell pm list packages | grep robotmind
+adb shell dumpsys package baby.robotmind.luncher
 ```
 
 ### **3. Monitor Native Crashes**
@@ -200,7 +200,7 @@ adb logcat -s AndroidRuntime:E ReactNativeJS:V System.err:W
 ### **4. Check Intent Filters**
 ```bash
 # Verify launcher intent filters are registered
-adb shell dumpsys package com.anonymous.waza | grep -A10 "Activity Resolver Table"
+adb shell dumpsys package baby.robotmind.luncher | grep -A10 "Activity Resolver Table"
 ```
 
 ## 📝 Creating Bug Reports
@@ -232,7 +232,7 @@ When reporting crashes, include:
 ### **Immediate Crash on Startup**
 ```bash
 # Check if it's a permission issue
-adb shell am start -n com.anonymous.waza/.MainActivity
+adb shell am start -n baby.robotmind.luncher/.MainActivity
 # Look for permission denied errors
 ```
 
@@ -265,14 +265,14 @@ If the app completely breaks your device's launcher:
    adb shell pm clear-default-apps
    ```
 
-3. **Force stop Waza:**
+3. **Force stop robotmind:**
    ```bash
-   adb shell am force-stop com.anonymous.waza
+   adb shell am force-stop baby.robotmind.luncher
    ```
 
 4. **Uninstall if necessary:**
    ```bash
-   adb uninstall com.anonymous.waza
+   adb uninstall baby.robotmind.luncher
    ```
 
 Remember: The enhanced error handling in the app should prevent most crashes and provide detailed information about what went wrong!

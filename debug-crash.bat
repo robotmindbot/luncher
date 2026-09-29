@@ -1,5 +1,5 @@
 @echo off
-echo 🐛 Waza Launcher Debug Script (Windows)
+echo 🐛 robotmind Launcher Debug Script (Windows)
 echo ======================================
 echo.
 
@@ -43,10 +43,10 @@ echo ❌ Invalid choice. Please try again.
 goto menu
 
 :live_logs
-echo 🔄 Monitoring live logs for Waza launcher...
+echo 🔄 Monitoring live logs for robotmind launcher...
 echo Press Ctrl+C to stop
 echo ==========================================
-adb logcat | findstr /R "com.anonymous.waza ReactNativeJS System.err AndroidRuntime FATAL ERROR"
+adb logcat | findstr /R "baby.robotmind.luncher ReactNativeJS System.err AndroidRuntime FATAL ERROR"
 goto menu
 
 :crash_logs
@@ -71,10 +71,10 @@ goto menu
 :save_logs
 for /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c-%%a-%%b)
 for /f "tokens=1-3 delims=:." %%a in ('time /t') do (set mytime=%%a-%%b-%%c)
-set filename=waza_logs_%mydate%_%mytime%.txt
+set filename=robotmind_logs_%mydate%_%mytime%.txt
 
 echo 📋 Saving logs to %filename%...
-echo === WAZA LAUNCHER DEBUG LOGS === > %filename%
+echo === robotmind LAUNCHER DEBUG LOGS === > %filename%
 echo Generated: %date% %time% >> %filename%
 echo ================================= >> %filename%
 echo. >> %filename%
@@ -87,8 +87,8 @@ echo === REACT NATIVE LOGS === >> %filename%
 adb logcat -d | findstr "ReactNativeJS" >> %filename%
 echo. >> %filename%
 
-echo === WAZA APP LOGS === >> %filename%
-adb logcat -d | findstr "com.anonymous.waza" >> %filename%
+echo === robotmind APP LOGS === >> %filename%
+adb logcat -d | findstr "baby.robotmind.luncher" >> %filename%
 
 echo ✅ Logs saved to %filename%
 pause

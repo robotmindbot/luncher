@@ -19,7 +19,7 @@ interface NativeAppLauncher {
 
 const CACHE_KEY = 'launcher_installed_apps';
 const CACHE_MAX_AGE = 5 * 60 * 1000;
-const LAUNCHER_PACKAGE_NAME = 'baby.waza.luncher';
+const LAUNCHER_PACKAGE_NAME = 'baby.robotmind.luncher';
 const mockApps: AppInfo[] = [
   { name: 'Settings', packageName: 'com.android.settings' },
   { name: 'Calculator', packageName: 'com.android.calculator2' },

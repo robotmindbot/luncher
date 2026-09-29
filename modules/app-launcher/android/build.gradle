@@ -3,7 +3,7 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 
-group = 'baby.waza.luncher'
+group = 'baby.robotmind.luncher'
 version = '1.0.0'
 
 android {

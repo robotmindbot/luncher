@@ -12,18 +12,7 @@
     },
     "production": {
       "android": {
-       // "buildType": "apk"
-      },
-      "env": {
-        "SENTRY_AUTH_TOKEN": "[REDACTED]"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "/home/nex/Downloads/waza-baby-a2c3d90e05d9.json",
-        "track": "internal"
+        "buildType": "apk"
       }
     }
   }
