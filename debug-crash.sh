@@ -38,7 +38,7 @@ monitor_live() {
     echo "🔄 Monitoring live logs for robotmind launcher..."
     echo "Press Ctrl+C to stop"
     echo "=========================================="
-    adb logcat | grep -E "(baby.robotmind.luncher|ReactNativeJS|System.err|AndroidRuntime|FATAL|ERROR)"
+    adb logcat | grep -E "(io.robotmind.luncher|ReactNativeJS|System.err|AndroidRuntime|FATAL|ERROR)"
 }
 
 # Function to show crash logs
@@ -65,7 +65,7 @@ monitor_memory() {
     echo "📊 Memory usage for robotmind launcher:"
     echo "=================================="
     while true; do
-        memory=$(adb shell dumpsys meminfo baby.robotmind.luncher | grep "TOTAL" | head -1)
+        memory=$(adb shell dumpsys meminfo io.robotmind.luncher | grep "TOTAL" | head -1)
         if [[ -n "$memory" ]]; then
             echo "$(date): $memory"
         else
@@ -103,7 +103,7 @@ save_logs() {
     echo "" >> "$filename"
 
     echo "=== robotmind APP LOGS ===" >> "$filename"
-    adb logcat -d | grep -E "baby.robotmind.luncher" | tail -100 >> "$filename"
+    adb logcat -d | grep -E "io.robotmind.luncher" | tail -100 >> "$filename"
 
     echo "✅ Logs saved to $filename"
 }

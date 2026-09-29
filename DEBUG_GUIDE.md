@@ -24,7 +24,7 @@ If you prefer manual debugging:
 
 ```bash
 # View live logs
-adb logcat | grep -E "(baby.robotmind.luncher|ReactNativeJS|FATAL|ERROR)"
+adb logcat | grep -E "(io.robotmind.luncher|ReactNativeJS|FATAL|ERROR)"
 
 # View recent crashes only
 adb logcat -d | grep -E "(FATAL|AndroidRuntime)" | tail -20
@@ -120,7 +120,7 @@ Native crash: signal 11 (SIGSEGV)
 **Solution:**
 ```bash
 # Check if app has QUERY_ALL_PACKAGES permission
-adb shell dumpsys package baby.robotmind.luncher | grep -A5 "declared permissions"
+adb shell dumpsys package io.robotmind.luncher | grep -A5 "declared permissions"
 ```
 
 **Fix:** Manually enable in Settings → Apps → robotmind → Permissions
@@ -188,7 +188,7 @@ adb shell setprop log.tag.ReactNativeJS VERBOSE
 ```bash
 # Verify app is installed correctly
 adb shell pm list packages | grep robotmind
-adb shell dumpsys package baby.robotmind.luncher
+adb shell dumpsys package io.robotmind.luncher
 ```
 
 ### **3. Monitor Native Crashes**
@@ -200,7 +200,7 @@ adb logcat -s AndroidRuntime:E ReactNativeJS:V System.err:W
 ### **4. Check Intent Filters**
 ```bash
 # Verify launcher intent filters are registered
-adb shell dumpsys package baby.robotmind.luncher | grep -A10 "Activity Resolver Table"
+adb shell dumpsys package io.robotmind.luncher | grep -A10 "Activity Resolver Table"
 ```
 
 ## 📝 Creating Bug Reports
@@ -232,7 +232,7 @@ When reporting crashes, include:
 ### **Immediate Crash on Startup**
 ```bash
 # Check if it's a permission issue
-adb shell am start -n baby.robotmind.luncher/.MainActivity
+adb shell am start -n io.robotmind.luncher/.MainActivity
 # Look for permission denied errors
 ```
 
@@ -267,12 +267,12 @@ If the app completely breaks your device's launcher:
 
 3. **Force stop robotmind:**
    ```bash
-   adb shell am force-stop baby.robotmind.luncher
+   adb shell am force-stop io.robotmind.luncher
    ```
 
 4. **Uninstall if necessary:**
    ```bash
-   adb uninstall baby.robotmind.luncher
+   adb uninstall io.robotmind.luncher
    ```
 
 Remember: The enhanced error handling in the app should prevent most crashes and provide detailed information about what went wrong!

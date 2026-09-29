@@ -46,7 +46,7 @@ goto menu
 echo 🔄 Monitoring live logs for robotmind launcher...
 echo Press Ctrl+C to stop
 echo ==========================================
-adb logcat | findstr /R "baby.robotmind.luncher ReactNativeJS System.err AndroidRuntime FATAL ERROR"
+adb logcat | findstr /R "io.robotmind.luncher ReactNativeJS System.err AndroidRuntime FATAL ERROR"
 goto menu
 
 :crash_logs
@@ -88,7 +88,7 @@ adb logcat -d | findstr "ReactNativeJS" >> %filename%
 echo. >> %filename%
 
 echo === robotmind APP LOGS === >> %filename%
-adb logcat -d | findstr "baby.robotmind.luncher" >> %filename%
+adb logcat -d | findstr "io.robotmind.luncher" >> %filename%
 
 echo ✅ Logs saved to %filename%
 pause

@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "baby.robotmind.luncher"
+      "bundleIdentifier": "io.robotmind.luncher"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "android.permission.READ_CALENDAR"
       ],
       "versionCode": 1,
-      "package": "baby.robotmind.luncher"
+      "package": "io.robotmind.luncher"
     },
     "web": {
       "bundler": "metro",
