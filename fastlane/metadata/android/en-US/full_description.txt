@@ -1,0 +1,7 @@
+Luncher is a minimal Android home screen with a searchable list of installed apps.
+
+Features:
+- Search installed apps by name or alias.
+- Set home screen shortcuts and aliases.
+- Optionally show the next calendar event, with configurable title filters.
+- No ads, analytics, or crash reporting.

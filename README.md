@@ -2,6 +2,8 @@
 
 An Android home screen that lists installed apps, searches app names and aliases, and can show the next calendar event.
 
+The project is licensed under MIT; see [LICENSE](LICENSE).
+
 ## Build from source
 
 Requirements: Node.js 20, Java 17, and Android SDK platform 35.
@@ -18,7 +20,7 @@ The unsigned APK is written to `android/app/build/outputs/apk/release/app-releas
 
 ## F-Droid status
 
-The app uses React Native and Expo. F-Droid builds need the Node and JavaScript package sources as well as the Gradle dependencies; a successful local build alone does not provide an F-Droid build recipe. The build recipe must install those dependencies from reviewed, redistributable sources and build without fetching undeclared binaries.
+The root `.fdroid.yml` contains an initial build recipe. With `fdroidserver` installed, run `fdroid build` from the repository root to build the pinned source revision. The recipe still needs validation in the F-Droid build environment; JavaScript package sources and Gradle dependencies must be reviewed and buildable from source.
 
 App discovery uses `QUERY_ALL_PACKAGES` because a launcher needs to list the apps installed on the device. Calendar access is optional and requested only when enabling the next appointment display. Crash reporting and analytics are not included.
 
