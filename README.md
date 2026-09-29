@@ -20,7 +20,7 @@ The unsigned APK is written to `android/app/build/outputs/apk/release/app-releas
 
 ## F-Droid status
 
-The root `.fdroid.yml` contains an initial build recipe. With `fdroidserver` installed, run `fdroid build` from the repository root to build the pinned source revision. The recipe still needs validation in the F-Droid build environment; JavaScript package sources and Gradle dependencies must be reviewed and buildable from source.
+The project is not ready for F-Droid submission yet: neither configured Git remote is publicly accessible, and F-Droid needs a public source repository to build a pinned revision. Once a public repository URL is available, add and validate the F-Droid build metadata. JavaScript package sources and Gradle dependencies must also be reviewed and buildable from source.
 
 App discovery uses `QUERY_ALL_PACKAGES` because a launcher needs to list the apps installed on the device. Calendar access is optional and requested only when enabling the next appointment display. Crash reporting and analytics are not included.
 
