@@ -11,7 +11,8 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Alert,
 } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { type HomeApp, useFontSize } from './_layout';
@@ -32,13 +33,14 @@ function LauncherHome() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
   const [selectedHomeAppIndex, setSelectedHomeAppIndex] = useState<number | null>(null);
-  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
+  const [editingApp, setEditingApp] = useState<AppInfo | null>(null);
+  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | 'down' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [nextAppointment, setNextAppointment] = useState<{ eventId: number; title: string; begin: number; end: number; allDay: boolean } | null>(null);
   const searchInputRef = useRef<TextInput>(null);
   const isMountedRef = useRef(true);
-  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp, setLeftSwipeApp, setRightSwipeApp, appAliases, showTime, showDate, chineseDate, showNextAppointment } = useFontSize();
+  const { fontSize, numHomeApps, homeApps, setHomeApp, leftSwipeApp, rightSwipeApp, downSwipeApp, setLeftSwipeApp, setRightSwipeApp, setDownSwipeApp, appAliases, setAppAlias, showTime, showDate, chineseDate, showNextAppointment, calendarFilterKeywords } = useFontSize();
 
   // Track component mount state to prevent state updates after unmount
   useEffect(() => {
@@ -104,6 +106,17 @@ function LauncherHome() {
     }).start();
   }, [translateY]);
 
+  const openDrawer = useCallback(() => {
+    translateY.setValue(0);
+    setIsDrawerOpen(true);
+    searchInputRef.current?.focus();
+  }, [translateY]);
+
+  const toggleDrawer = useCallback(() => {
+    if (isDrawerOpen) closeDrawer();
+    else openDrawer();
+  }, [isDrawerOpen, closeDrawer, openDrawer]);
+
   // Load apps on component mount
   useEffect(() => {
     loadApps();
@@ -122,7 +135,7 @@ function LauncherHome() {
     }
     let active = true;
     const refresh = () => {
-      void AppLauncherWrapper.getNextCalendarAppointment().then(value => {
+      void AppLauncherWrapper.getNextCalendarAppointment(calendarFilterKeywords.split(',').map(keyword => keyword.trim()).filter(Boolean)).then(value => {
         if (active) setNextAppointment(value);
       }).catch(error => console.warn('Could not read calendar appointment:', error));
     };
@@ -136,12 +149,12 @@ function LauncherHome() {
       clearInterval(timer);
       subscription.remove();
     };
-  }, [showDate, showNextAppointment]);
+  }, [showDate, showNextAppointment, calendarFilterKeywords]);
 
   useEffect(() => {
-    const subscription = AppLauncherWrapper.addHomeIntentListener(closeDrawer);
+    const subscription = AppLauncherWrapper.addHomeIntentListener(toggleDrawer);
     return () => subscription?.remove();
-  }, [closeDrawer]);
+  }, [toggleDrawer]);
 
   // Handle Android back button - always stay on home screen
   useEffect(() => {
@@ -166,7 +179,7 @@ function LauncherHome() {
       } else if (nextAppState === 'active' && wasInBackground) {
         wasInBackground = false;
         if (isDrawerOpen) closeDrawer();
-        void loadApps();
+        void loadApps(true);
       }
     };
 
@@ -190,23 +203,17 @@ function LauncherHome() {
     }
   }, [isDrawerOpen, searchQuery, filteredApps, loading, launchApp]);
 
-  const openDrawer = () => {
-    translateY.setValue(0);
-    setIsDrawerOpen(true);
-    searchInputRef.current?.focus();
-  };
-
-  const toggleDrawer = () => {
-    if (isDrawerOpen) {
-      closeDrawer();
-    } else {
-      openDrawer();
-    }
-  };
-
   const handleLongPress = () => {
     router.push('./config');
   };
+
+  const handleSearchLongPress = (app: AppInfo) => Alert.alert(app.name, undefined, [
+    { text: 'Edit alias', onPress: () => { setEditingApp(app); setAppSelectorVisible(true); } },
+    { text: 'Uninstall app', style: 'destructive', onPress: () => {
+      if (!AppLauncherWrapper.uninstallApp(app.packageName)) Alert.alert('Unable to uninstall app');
+    } },
+    { text: 'Cancel', style: 'cancel' },
+  ]);
 
   const launchNamedApp = (term: string) => {
     const app = apps.find(item => item.name.toLowerCase().includes(term));
@@ -237,7 +244,9 @@ function LauncherHome() {
   };
 
   const handleAppSelect = (app: { packageName: string; originalName: string; alias?: string }) => {
-    if (selectedHomeAppIndex !== null) {
+    if (editingApp) {
+      setAppAlias(editingApp.packageName, app.alias ?? '');
+    } else if (selectedHomeAppIndex !== null) {
       setHomeApp(selectedHomeAppIndex, app);
     } else if (selectedSwipeType) {
       // Handle swipe app assignment
@@ -245,11 +254,14 @@ function LauncherHome() {
         setLeftSwipeApp(app);
       } else if (selectedSwipeType === 'right') {
         setRightSwipeApp(app);
+      } else if (selectedSwipeType === 'down') {
+        setDownSwipeApp(app);
       }
     }
     setAppSelectorVisible(false);
     setSelectedHomeAppIndex(null);
     setSelectedSwipeType(null);
+    setEditingApp(null);
   };
 
   const renderHomeAppItem = (app: HomeApp | null | undefined, index: number) => (
@@ -281,6 +293,15 @@ function LauncherHome() {
         // Vertical swipe up (negative translationY) to open drawer
         if (translationY < -50 || velocityY < -500) {
           openDrawer();
+        }
+        // Downward swipe
+        else if (translationY > 50 || velocityY > 500) {
+          if (downSwipeApp.packageName) {
+            handleHomeAppPress(downSwipeApp);
+          } else {
+            setSelectedSwipeType('down');
+            setAppSelectorVisible(true);
+          }
         }
         // Right swipe (positive translation)
         else if (translationX > 50 || velocityX > 500) {
@@ -361,6 +382,7 @@ function LauncherHome() {
             onSearchQueryChange={setSearchQuery}
             filteredApps={filteredApps}
             onAppPress={launchApp}
+            onAppLongPress={handleSearchLongPress}
             loading={loading}
             error={loadError}
             isOpen={isDrawerOpen}
@@ -376,18 +398,21 @@ function LauncherHome() {
             setAppSelectorVisible(false);
             setSelectedHomeAppIndex(null);
             setSelectedSwipeType(null);
+            setEditingApp(null);
           }}
           onSelectApp={handleAppSelect}
-          currentApp={
+          currentApp={editingApp ? { ...editingApp, originalName: editingApp.name, alias: appAliases[editingApp.packageName] } :
             selectedHomeAppIndex !== null && homeApps[selectedHomeAppIndex]
               ? homeApps[selectedHomeAppIndex]
               : selectedSwipeType === 'left'
               ? leftSwipeApp
-              : selectedSwipeType === 'right'
+            : selectedSwipeType === 'right'
               ? rightSwipeApp
+              : selectedSwipeType === 'down'
+                ? downSwipeApp
               : undefined
           }
-          allowAlias={selectedHomeAppIndex !== null}
+          allowAlias={selectedHomeAppIndex !== null || editingApp !== null}
         />
       </SafeAreaView>
     </GestureHandlerRootView>

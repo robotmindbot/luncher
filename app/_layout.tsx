@@ -86,11 +86,14 @@ interface FontSizeContextType {
   setNumHomeApps: (num: number) => void;
   homeApps: HomeApp[];
   appAliases: Record<string, string>;
+  setAppAlias: (packageName: string, alias: string) => void;
   setHomeApp: (index: number, app: HomeApp | null) => void;
   leftSwipeApp: HomeApp;
   rightSwipeApp: HomeApp;
+  downSwipeApp: HomeApp;
   setLeftSwipeApp: (app: HomeApp) => void;
   setRightSwipeApp: (app: HomeApp) => void;
+  setDownSwipeApp: (app: HomeApp) => void;
   showTime: boolean;
   setShowTime: (show: boolean) => void;
   showDate: boolean;
@@ -99,6 +102,8 @@ interface FontSizeContextType {
   setChineseDate: (chinese: boolean) => void;
   showNextAppointment: boolean;
   setShowNextAppointment: (show: boolean) => void;
+  calendarFilterKeywords: string;
+  setCalendarFilterKeywords: (keywords: string) => void;
 }
 
 const FontSizeContext = createContext<FontSizeContextType>({
@@ -108,11 +113,14 @@ const FontSizeContext = createContext<FontSizeContextType>({
   setNumHomeApps: () => {},
   homeApps: [],
   appAliases: {},
+  setAppAlias: () => {},
   setHomeApp: () => {},
   leftSwipeApp: { packageName: '', originalName: 'select' },
   rightSwipeApp: { packageName: '', originalName: 'select' },
+  downSwipeApp: { packageName: '', originalName: 'select' },
   setLeftSwipeApp: () => {},
   setRightSwipeApp: () => {},
+  setDownSwipeApp: () => {},
   showTime: false,
   setShowTime: () => {},
   showDate: false,
@@ -121,6 +129,8 @@ const FontSizeContext = createContext<FontSizeContextType>({
   setChineseDate: () => {},
   showNextAppointment: false,
   setShowNextAppointment: () => {},
+  calendarFilterKeywords: '',
+  setCalendarFilterKeywords: () => {},
 });
 
 export const useFontSize = () => useContext(FontSizeContext);
@@ -130,12 +140,31 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
   const [numHomeApps, setNumHomeAppsState] = useState(0);
   const [homeApps, setHomeAppsState] = useState<HomeApp[]>([]);
   const [appAliases, setAppAliasesState] = useState<Record<string, string>>({});
+  const setAppAlias = async (packageName: string, value: string) => {
+    if (!packageName) return;
+    const aliases = { ...appAliases };
+    const alias = value.trim();
+    if (alias) aliases[packageName] = alias;
+    else delete aliases[packageName];
+    try {
+      await AsyncStorage.setItem('launcher_app_aliases', JSON.stringify(aliases));
+      setAppAliasesState(aliases);
+      setHomeAppsState(homeApps.map(app => applyAppAliases(app, aliases)));
+      setLeftSwipeAppState(applyAppAliases(leftSwipeApp, aliases));
+      setRightSwipeAppState(applyAppAliases(rightSwipeApp, aliases));
+      setDownSwipeAppState(applyAppAliases(downSwipeApp, aliases));
+    } catch (error) {
+      console.error('Failed to save app alias:', error);
+    }
+  };
   const [leftSwipeApp, setLeftSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
   const [rightSwipeApp, setRightSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
+  const [downSwipeApp, setDownSwipeAppState] = useState<HomeApp>({ packageName: '', originalName: 'select' });
   const [showTime, setShowTimeState] = useState(false);
   const [showDate, setShowDateState] = useState(false);
   const [chineseDate, setChineseDateState] = useState(false);
   const [showNextAppointment, setShowNextAppointmentState] = useState(false);
+  const [calendarFilterKeywords, setCalendarFilterKeywordsState] = useState('');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -158,10 +187,12 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         'launcher_home_apps',
         'launcher_left_swipe_app',
         'launcher_right_swipe_app',
+        'launcher_down_swipe_app',
         'launcher_show_time',
         'launcher_show_date',
         'launcher_chinese_date',
         'launcher_show_next_appointment',
+        'launcher_calendar_filter_keywords',
         'launcher_app_nicknames',
         'launcher_app_aliases',
       ]);
@@ -171,10 +202,12 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
         savedHomeApps,
         savedLeftSwipeApp,
         savedRightSwipeApp,
+        savedDownSwipeApp,
         savedShowTime,
         savedShowDate,
         savedChineseDate,
         savedNextAppointment,
+        savedCalendarFilterKeywords,
         savedAppNicknames,
         savedAppAliases,
       ] = savedValues.map(([, value]) => value);
@@ -185,14 +218,16 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       const loadedHomeApps = parseSavedHomeApps(savedHomeApps, savedCount);
       const loadedLeftSwipeApp = parseSavedSwipeApp(savedLeftSwipeApp);
       const loadedRightSwipeApp = parseSavedSwipeApp(savedRightSwipeApp);
+      const loadedDownSwipeApp = parseSavedSwipeApp(savedDownSwipeApp);
       const aliases = { ...parseAppAliases(savedAppNicknames), ...parseAppAliases(savedAppAliases) };
-      for (const app of [...loadedHomeApps, loadedLeftSwipeApp, loadedRightSwipeApp]) {
+      for (const app of [...loadedHomeApps, loadedLeftSwipeApp, loadedRightSwipeApp, loadedDownSwipeApp]) {
         if (!aliases[app.packageName] && app.alias?.trim()) aliases[app.packageName] = app.alias.trim();
       }
       setAppAliasesState(aliases);
       setHomeAppsState(loadedHomeApps.map(app => applyAppAliases(app, aliases)));
       setLeftSwipeAppState(applyAppAliases(loadedLeftSwipeApp, aliases));
       setRightSwipeAppState(applyAppAliases(loadedRightSwipeApp, aliases));
+      setDownSwipeAppState(applyAppAliases(loadedDownSwipeApp, aliases));
       if (Object.keys(aliases).length) {
         await AsyncStorage.setItem('launcher_app_aliases', JSON.stringify(aliases));
       }
@@ -200,6 +235,7 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       setShowDateState(savedShowDate === 'true');
       setChineseDateState(savedChineseDate === 'true');
       setShowNextAppointmentState(savedNextAppointment === 'true');
+      setCalendarFilterKeywordsState(savedCalendarFilterKeywords?.split(',').map(keyword => keyword.trim()).filter(Boolean).join(', ') ?? '');
 
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -253,16 +289,19 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       newHomeApps[index] = parsedApp ? applyAppAliases(parsedApp, newAliases) : { ...emptyHomeApp };
       const newLeftSwipeApp = applyAppAliases(leftSwipeApp, newAliases);
       const newRightSwipeApp = applyAppAliases(rightSwipeApp, newAliases);
+      const newDownSwipeApp = applyAppAliases(downSwipeApp, newAliases);
       await AsyncStorage.multiSet([
         ['launcher_home_apps', JSON.stringify(newHomeApps)],
         ['launcher_app_aliases', JSON.stringify(newAliases)],
         ['launcher_left_swipe_app', JSON.stringify(newLeftSwipeApp)],
         ['launcher_right_swipe_app', JSON.stringify(newRightSwipeApp)],
+        ['launcher_down_swipe_app', JSON.stringify(newDownSwipeApp)],
       ]);
       setHomeAppsState(newHomeApps);
       setAppAliasesState(newAliases);
       setLeftSwipeAppState(newLeftSwipeApp);
       setRightSwipeAppState(newRightSwipeApp);
+      setDownSwipeAppState(newDownSwipeApp);
     } catch (error) {
       console.error('Failed to save home app:', error);
     }
@@ -288,12 +327,32 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setDownSwipeApp = async (app: HomeApp) => {
+    try {
+      const savedApp = applyAppAliases(parseHomeApp(app) ?? { ...emptyHomeApp }, appAliases);
+      await AsyncStorage.setItem('launcher_down_swipe_app', JSON.stringify(savedApp));
+      setDownSwipeAppState(savedApp);
+    } catch (error) {
+      console.error('Failed to save down swipe app:', error);
+    }
+  };
+
   const saveDisplayOption = async (key: string, value: boolean, update: (value: boolean) => void) => {
     try {
       await AsyncStorage.setItem(key, String(value));
       update(value);
     } catch (error) {
       console.error('Failed to save home display option:', error);
+    }
+  };
+
+  const setCalendarFilterKeywords = async (keywords: string) => {
+    const normalized = keywords.split(',').map(keyword => keyword.trim()).filter(Boolean).join(', ');
+    try {
+      await AsyncStorage.setItem('launcher_calendar_filter_keywords', normalized);
+      setCalendarFilterKeywordsState(normalized);
+    } catch (error) {
+      console.error('Failed to save calendar filter keywords:', error);
     }
   };
 
@@ -305,11 +364,14 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       setNumHomeApps,
       homeApps,
       appAliases,
+      setAppAlias,
       setHomeApp,
       leftSwipeApp,
       rightSwipeApp,
+      downSwipeApp,
       setLeftSwipeApp,
       setRightSwipeApp,
+      setDownSwipeApp,
       showTime,
       setShowTime: (value) => saveDisplayOption('launcher_show_time', value, setShowTimeState),
       showDate,
@@ -318,6 +380,8 @@ function FontSizeProvider({ children }: { children: ReactNode }) {
       setChineseDate: (value) => saveDisplayOption('launcher_chinese_date', value, setChineseDateState),
       showNextAppointment,
       setShowNextAppointment: (value) => saveDisplayOption('launcher_show_next_appointment', value, setShowNextAppointmentState),
+      calendarFilterKeywords,
+      setCalendarFilterKeywords,
     }}>
       {children}
     </FontSizeContext.Provider>

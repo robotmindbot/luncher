@@ -21,6 +21,7 @@ interface SearchViewProps {
   onSearchQueryChange: (query: string) => void;
   filteredApps: App[];
   onAppPress: (packageName: string) => void;
+  onAppLongPress?: (app: App) => void;
   loading: boolean;
   isOpen: boolean;
   onRefresh?: () => void;
@@ -35,6 +36,7 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
   onSearchQueryChange,
   filteredApps,
   onAppPress,
+  onAppLongPress,
   loading,
   isOpen,
   onRefresh,
@@ -65,11 +67,12 @@ const SearchView = forwardRef<TextInput, SearchViewProps>(({
     <TouchableOpacity
       style={styles.appItem}
       onPress={() => onAppPress(item.packageName)}
+      onLongPress={onAppLongPress ? () => onAppLongPress(item) : undefined}
       activeOpacity={0.6}
     >
       <Text style={[styles.appName, { fontSize }]}>{item.name}{item.alias ? ` (${item.alias})` : ''}</Text>
     </TouchableOpacity>
-  ), [fontSize, onAppPress]);
+  ), [fontSize, onAppPress, onAppLongPress]);
 
   return (
     <>

@@ -8,6 +8,7 @@ import {
     StyleSheet,
     Switch,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -29,8 +30,10 @@ export default function ConfigScreen() {
     setNumHomeApps,
     leftSwipeApp,
     rightSwipeApp,
+    downSwipeApp,
     setLeftSwipeApp,
     setRightSwipeApp,
+    setDownSwipeApp,
     showTime,
     setShowTime,
     showDate,
@@ -39,10 +42,12 @@ export default function ConfigScreen() {
     setChineseDate,
     showNextAppointment,
     setShowNextAppointment,
+    calendarFilterKeywords,
+    setCalendarFilterKeywords,
   } = useFontSize();
 
   const [appSelectorVisible, setAppSelectorVisible] = useState(false);
-  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | null>(null);
+  const [selectedSwipeType, setSelectedSwipeType] = useState<'left' | 'right' | 'down' | null>(null);
   const fontSize = 18;
 
   // Handle Android back button - go back to home
@@ -98,7 +103,7 @@ export default function ConfigScreen() {
     }
   };
 
-  const handleSwipeAppPress = (type: 'left' | 'right') => {
+  const handleSwipeAppPress = (type: 'left' | 'right' | 'down') => {
     setSelectedSwipeType(type);
     setAppSelectorVisible(true);
   };
@@ -108,6 +113,8 @@ export default function ConfigScreen() {
       setLeftSwipeApp(app);
     } else if (selectedSwipeType === 'right') {
       setRightSwipeApp(app);
+    } else if (selectedSwipeType === 'down') {
+      setDownSwipeApp(app);
     }
     setAppSelectorVisible(false);
     setSelectedSwipeType(null);
@@ -155,6 +162,15 @@ export default function ConfigScreen() {
           <Text style={[styles.swipeLabel, { fontSize }]}>Show next calendar appointment</Text>
           <Switch value={showNextAppointment} onValueChange={toggleNextAppointment} {...switchColors(showNextAppointment)} />
         </View>}
+        {showDate && showNextAppointment && <TextInput
+          style={[styles.keywordInput, { fontSize }]}
+          placeholder="Hide events with keywords (comma separated)"
+          placeholderTextColor="#666"
+          value={calendarFilterKeywords}
+          onChangeText={setCalendarFilterKeywords}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />}
 
         <Text style={[styles.sectionTitle, { fontSize: fontSize + 2, marginTop: 40 }]}>Home Apps</Text>
 
@@ -191,6 +207,17 @@ export default function ConfigScreen() {
               {rightSwipeApp.alias || rightSwipeApp.originalName}
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.swipeOption}
+            onPress={() => handleSwipeAppPress('down')}
+            activeOpacity={0.6}
+          >
+            <Text style={[styles.swipeLabel, { fontSize }]}>Swipe Down</Text>
+            <Text style={[styles.swipeAppName, { fontSize }]}>
+              {downSwipeApp.alias || downSwipeApp.originalName}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -204,7 +231,8 @@ export default function ConfigScreen() {
         onSelectApp={handleSwipeAppSelect}
         currentApp={
           selectedSwipeType === 'left' ? leftSwipeApp :
-          selectedSwipeType === 'right' ? rightSwipeApp : undefined
+          selectedSwipeType === 'right' ? rightSwipeApp :
+          selectedSwipeType === 'down' ? downSwipeApp : undefined
         }
         allowAlias={false}
       />
@@ -246,6 +274,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   displayOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  keywordInput: { minHeight: 48, marginTop: 12, paddingHorizontal: 14, color: '#fff', backgroundColor: '#111', borderRadius: 8 },
   swipeOption: {
     flex: 1,
     paddingVertical: 20,

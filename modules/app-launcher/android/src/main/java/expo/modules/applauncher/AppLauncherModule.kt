@@ -47,7 +47,7 @@ class AppLauncherModule : Module() {
       true
     }
 
-    AsyncFunction("getNextCalendarAppointment") {
+    AsyncFunction("getNextCalendarAppointment") { keywords: List<String> ->
       val context = appContext.reactContext ?: return@AsyncFunction null
       if (context.checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
         return@AsyncFunction null
@@ -71,11 +71,13 @@ class AppLauncherModule : Module() {
         .appendPath(end.toString())
         .build()
       val projection = arrayOf(Instances.EVENT_ID, Instances.TITLE, Instances.BEGIN, Instances.END, Instances.ALL_DAY)
+      val ignoredKeywords = keywords.map { it.trim() }.filter { it.isNotEmpty() }
       var allDayEvent: Map<String, Any>? = null
       context.contentResolver.query(uri, projection, null, null, "${Instances.BEGIN} ASC")?.use { cursor ->
         while (cursor.moveToNext()) {
           val eventId = cursor.getLong(0)
           val title = cursor.getString(1)?.takeIf { it.isNotBlank() } ?: continue
+          if (ignoredKeywords.any { title.contains(it, ignoreCase = true) }) continue
           val begin = cursor.getLong(2)
           val end = cursor.getLong(3)
           val allDay = cursor.getInt(4) != 0
@@ -95,6 +97,15 @@ class AppLauncherModule : Module() {
       val intent = Intent(Intent.ACTION_VIEW, ContentUris.withAppendedId(Events.CONTENT_URI, eventId))
         .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin)
         .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, end)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      if (intent.resolveActivity(context.packageManager) == null) return@Function false
+      context.startActivity(intent)
+      true
+    }
+
+    Function("uninstallApp") { packageName: String ->
+      val context = appContext.reactContext ?: return@Function false
+      val intent = Intent(Intent.ACTION_DELETE, android.net.Uri.parse("package:$packageName"))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       if (intent.resolveActivity(context.packageManager) == null) return@Function false
       context.startActivity(intent)

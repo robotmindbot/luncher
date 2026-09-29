@@ -11,8 +11,9 @@ interface NativeAppLauncher {
   getInstalledApps(): Promise<AppInfo[]>;
   launchApp(packageName: string): boolean;
   finishKeyboardShowImmediately(): boolean;
-  getNextCalendarAppointment(): Promise<{ eventId: number; title: string; begin: number; end: number; allDay: boolean } | null>;
+  getNextCalendarAppointment(keywords: string[]): Promise<{ eventId: number; title: string; begin: number; end: number; allDay: boolean } | null>;
   openCalendarEvent(eventId: number, begin: number, end: number): boolean;
+  uninstallApp(packageName: string): boolean;
   addListener(eventName: 'onHomeIntent', listener: () => void): EventSubscription;
 }
 
@@ -124,13 +125,17 @@ const AppLauncherWrapper = {
     })) === PermissionsAndroid.RESULTS.GRANTED;
   },
 
-  async getNextCalendarAppointment() {
+  async getNextCalendarAppointment(keywords: string[]) {
     if (Platform.OS !== 'android' || !nativeModule) return null;
-    return nativeModule.getNextCalendarAppointment();
+    return nativeModule.getNextCalendarAppointment(keywords);
   },
 
   openCalendarEvent(event: { eventId: number; begin: number; end: number }): boolean {
     return Platform.OS === 'android' && !!nativeModule?.openCalendarEvent(event.eventId, event.begin, event.end);
+  },
+
+  uninstallApp(packageName: string): boolean {
+    return Platform.OS === 'android' && !!nativeModule?.uninstallApp(packageName);
   },
 
   addHomeIntentListener(listener: () => void): EventSubscription | undefined {
