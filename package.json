@@ -3,6 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "license": "MIT",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [".*"]
+      }
+    }
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

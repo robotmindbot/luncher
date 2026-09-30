@@ -8,11 +8,6 @@
     "scheme": "luncher",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "autolinking": {
-      "android": {
-        "buildFromSource": [".*"]
-      }
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "io.robotmind.luncher"
@@ -25,6 +20,12 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.READ_CALENDAR"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
       ],
       "versionCode": 1,
       "package": "io.robotmind.luncher"

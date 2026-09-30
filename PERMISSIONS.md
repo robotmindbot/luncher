@@ -1,10 +1,14 @@
 # Android permissions
 
-Luncher requests only the permissions used by its launcher and optional calendar features.
+Luncher requests the permissions used by its launcher and optional calendar feature.
 
 ## Installed app discovery
 
 `QUERY_ALL_PACKAGES` lets Luncher find launchable apps so it can display and search them. This is required for the app's core launcher function.
+
+## Network access
+
+Expo's file-system module adds the normal `INTERNET` permission to the Android manifest. Luncher does not make network requests or include analytics, ads, or crash reporting.
 
 ## Calendar access
 

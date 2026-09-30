@@ -22,8 +22,8 @@ The unsigned APK is written to `android/app/build/outputs/apk/release/app-releas
 
 F-Droid metadata and the source build recipe are in `.fdroid.yml`. The Android
 launcher is generated from the checked-in Expo configuration during the build;
-the release is assembled unsigned from source. F-Droid’s main repository
-submission still requires a public source repository and review.
+the release is assembled unsigned from source. The public source is at
+<https://github.com/robotmindbot/luncher>.
 
 App discovery uses `QUERY_ALL_PACKAGES` because a launcher needs to list the
 apps installed on the device. Calendar access is optional and requested only
