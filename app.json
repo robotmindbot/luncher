@@ -8,6 +8,11 @@
     "scheme": "luncher",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "autolinking": {
+      "android": {
+        "buildFromSource": [".*"]
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "io.robotmind.luncher"
