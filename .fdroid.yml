@@ -34,9 +34,8 @@ Builds:
     build:
       - cd android && NODE_ENV=production gradle assembleRelease
     output: android/app/build/outputs/apk/release/app-release-unsigned.apk
-    scandelete:
-      - node_modules
     scanignore:
+      - android/build.gradle
       - node_modules/react-native/sdks/hermesc/linux64-bin/hermesc
       - node_modules/expo-modules-autolinking/scripts/android/autolinking_implementation.gradle
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
