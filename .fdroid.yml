@@ -24,7 +24,7 @@ Builds:
     commit: 554d66f785862e12af80f3357703151abbe0541b
     sudo:
       - apt-get update
-      - apt-get install -y npm
+      - apt-get install -y npm openjdk-17-jdk-headless
     init:
       - npm ci --no-audit --no-fund
       - find node_modules -type d -name local-maven-repo -prune -exec rm -rf '{}' +
